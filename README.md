@@ -108,7 +108,13 @@ package\output\农业经营记账-Win7版-安装包.exe
 
 ## 推荐打包方式：GitHub Actions
 
-已经提供独立的 GitHub Actions 工作流：
+Win7 兼容版建议单独建一个 GitHub 仓库，例如：
+
+```text
+0521-Project1-Win7
+```
+
+这个目录已经按独立仓库准备好了 GitHub Actions 工作流：
 
 ```text
 .github/workflows/windows7-build.yml
