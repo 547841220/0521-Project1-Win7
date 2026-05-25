@@ -21,9 +21,6 @@ ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 UninstallDisplayName={#MyAppName}
 
-[Languages]
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
-
 [Files]
 Source: "..\dist\field-ledger-win7.jar"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "..\package\run-app.bat"; DestDir: "{app}"; Flags: ignoreversion
