@@ -291,6 +291,7 @@ final class Models {
 
     static final class PublicExpense {
         String id;
+        String accountType;
         String date;
         String category;
         String name;
@@ -299,8 +300,9 @@ final class Models {
         long unitPriceCents;
         String note;
 
-        PublicExpense(String date, String category, String name, double quantity, String unit, long unitPriceCents, String note) {
+        PublicExpense(String accountType, String date, String category, String name, double quantity, String unit, long unitPriceCents, String note) {
             this.id = id();
+            this.accountType = accountType;
             this.date = date;
             this.category = category;
             this.name = name;
@@ -312,13 +314,25 @@ final class Models {
 
         PublicExpense(String[] values) {
             this.id = val(values, 0);
-            this.date = val(values, 1);
-            this.category = val(values, 2);
-            this.name = val(values, 3);
-            this.quantity = doubleVal(values, 4);
-            this.unit = val(values, 5);
-            this.unitPriceCents = longVal(values, 6);
-            this.note = val(values, 7);
+            if (values.length >= 9) {
+                this.accountType = val(values, 1);
+                this.date = val(values, 2);
+                this.category = val(values, 3);
+                this.name = val(values, 4);
+                this.quantity = doubleVal(values, 5);
+                this.unit = val(values, 6);
+                this.unitPriceCents = longVal(values, 7);
+                this.note = val(values, 8);
+            } else {
+                this.accountType = "普通公账";
+                this.date = val(values, 1);
+                this.category = val(values, 2);
+                this.name = val(values, 3);
+                this.quantity = doubleVal(values, 4);
+                this.unit = val(values, 5);
+                this.unitPriceCents = longVal(values, 6);
+                this.note = val(values, 7);
+            }
         }
 
         long totalCents() {
@@ -326,7 +340,7 @@ final class Models {
         }
 
         String[] values() {
-            return new String[] { id, date, category, name, String.valueOf(quantity), unit, String.valueOf(unitPriceCents), note };
+            return new String[] { id, accountType, date, category, name, String.valueOf(quantity), unit, String.valueOf(unitPriceCents), note };
         }
     }
 

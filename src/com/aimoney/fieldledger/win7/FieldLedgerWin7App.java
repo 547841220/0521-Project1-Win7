@@ -597,29 +597,32 @@ public final class FieldLedgerWin7App {
     }
 
     private JPanel publicExpensesPage() {
+        final JComboBox<String> accountType = optionCombo(LedgerStore.PUBLIC_EXPENSE_TYPES);
         final JTextField date = field(today());
-        final JTextField category = field();
+        final JComboBox<String> category = optionCombo(LedgerStore.PUBLIC_EXPENSE_CATEGORIES);
         final JTextField name = field();
         final JTextField quantity = field("1");
         final JTextField unit = field();
         final JTextField price = field("0");
         final JTextField note = field();
-        final JTable table = table(new String[] { "日期", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, publicExpenseRows());
+        final JTable table = table(new String[] { "账目类型", "日期", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, publicExpenseRows());
         final String[] selectedId = new String[] { "" };
 
         JPanel form = formPanel();
-        addField(form, 0, "日期", date);
-        addField(form, 1, "类别", category);
-        addField(form, 2, "名称", name);
-        addField(form, 3, "数量", quantity);
-        addField(form, 4, "单位", unit);
-        addField(form, 5, "单价", price);
-        addField(form, 6, "备注", note);
-        addActions(form, 7, new Runnable() {
+        addField(form, 0, "账目类型", accountType);
+        addField(form, 1, "日期", date);
+        addField(form, 2, "类别", category);
+        addField(form, 3, "名称", name);
+        addField(form, 4, "数量", quantity);
+        addField(form, 5, "单位", unit);
+        addField(form, 6, "单价", price);
+        addField(form, 7, "备注", note);
+        addActions(form, 8, new Runnable() {
             public void run() {
-                PublicExpense row = selectedId[0].isEmpty() ? new PublicExpense(date.getText(), category.getText(), name.getText(), Money.parseDouble(quantity.getText()), unit.getText(), Money.yuanToCents(price.getText()), note.getText()) : findPublicExpense(selectedId[0]);
+                PublicExpense row = selectedId[0].isEmpty() ? new PublicExpense(selectedString(accountType), date.getText(), selectedString(category), name.getText(), Money.parseDouble(quantity.getText()), unit.getText(), Money.yuanToCents(price.getText()), note.getText()) : findPublicExpense(selectedId[0]);
+                row.accountType = selectedString(accountType);
                 row.date = date.getText();
-                row.category = category.getText();
+                row.category = selectedString(category);
                 row.name = name.getText();
                 row.quantity = Money.parseDouble(quantity.getText());
                 row.unit = unit.getText();
@@ -639,8 +642,9 @@ public final class FieldLedgerWin7App {
             if (!e.getValueIsAdjusting() && rowIndex >= 0) {
                 PublicExpense row = store.publicExpenses.get(rowIndex);
                 selectedId[0] = row.id;
+                accountType.setSelectedItem(LedgerStore.publicType(row.accountType));
                 date.setText(row.date);
-                category.setText(row.category);
+                category.setSelectedItem(row.category);
                 name.setText(row.name);
                 quantity.setText(String.valueOf(row.quantity));
                 unit.setText(row.unit);
@@ -708,14 +712,19 @@ public final class FieldLedgerWin7App {
         final JTextField note = field(store.expenseCheckNote);
 
         JPanel page = pagePanel();
-        page.add(wrapTable("地块利润核对", table(new String[] { "地块", "管理人", "出货收入", "地块投入", "工资用工", "直接成本", "利润" }, profitTableRows(true))), BorderLayout.CENTER);
+        JPanel tableArea = new JPanel(new GridLayout(2, 1, 0, 16));
+        tableArea.setOpaque(false);
+        tableArea.add(wrapTable("地块利润核对", table(new String[] { "地块", "管理人", "出货收入", "地块投入", "工资用工", "直接成本", "利润" }, profitTableRows(true))));
+        tableArea.add(wrapTable("公账分类汇总", table(new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows())));
+        page.add(tableArea, BorderLayout.CENTER);
 
         JPanel bottom = panelBox();
         bottom.setLayout(new BorderLayout(12, 12));
-        JPanel cards = new JPanel(new GridLayout(1, 4, 12, 12));
+        JPanel cards = new JPanel(new GridLayout(1, 5, 12, 12));
         cards.setOpaque(false);
         cards.add(metric("小组账合计/直接成本", Money.centsToYuan(summary.directCostCents)));
-        cards.add(metric("公账支出", Money.centsToYuan(summary.publicExpenseCents)));
+        cards.add(metric("普通公账", Money.centsToYuan(summary.publicNormalExpenseCents)));
+        cards.add(metric("公账平均", Money.centsToYuan(summary.publicAverageExpenseCents)));
         cards.add(metric("固定账", Money.centsToYuan(summary.fixedExpenseCents)));
         cards.add(metric("系统总开销", Money.centsToYuan(summary.operatingExpenseCents)));
         bottom.add(cards, BorderLayout.NORTH);
@@ -744,7 +753,7 @@ public final class FieldLedgerWin7App {
         JPanel page = pagePanel();
         JPanel box = panelBox();
         box.setLayout(new BorderLayout(16, 16));
-        JLabel text = new JLabel("<html><h2>导出 Excel 可打开的 CSV 文件</h2><p>会生成地块利润、地块投入、工资用工、出货记录、公账、固定账、总账核对共 7 个文件。</p><p>数据目录: " + store.dataDir.getAbsolutePath() + "</p></html>");
+        JLabel text = new JLabel("<html><h2>导出 Excel 可打开的 CSV 文件</h2><p>会生成地块利润、地块投入、工资用工、出货记录、公账、固定账、总账核对、公账分类汇总共 8 个文件。</p><p>数据目录: " + store.dataDir.getAbsolutePath() + "</p></html>");
         JButton export = actionButton("导出到本地数据目录");
         export.addActionListener(e -> {
             try {
@@ -983,10 +992,20 @@ public final class FieldLedgerWin7App {
     }
 
     private Object[][] publicExpenseRows() {
-        Object[][] rows = new Object[store.publicExpenses.size()][8];
+        Object[][] rows = new Object[store.publicExpenses.size()][9];
         for (int i = 0; i < store.publicExpenses.size(); i++) {
             PublicExpense row = store.publicExpenses.get(i);
-            rows[i] = new Object[] { row.date, row.category, row.name, Money.number(row.quantity), row.unit, Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note };
+            rows[i] = new Object[] { LedgerStore.publicType(row.accountType), row.date, row.category, row.name, Money.number(row.quantity), row.unit, Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note };
+        }
+        return rows;
+    }
+
+    private Object[][] publicExpenseSummaryRows() {
+        List<String[]> summaryRows = store.publicExpenseSummaryRows();
+        Object[][] rows = new Object[summaryRows.size()][3];
+        for (int i = 0; i < summaryRows.size(); i++) {
+            String[] row = summaryRows.get(i);
+            rows[i] = new Object[] { row[0], row[1], row[2] };
         }
         return rows;
     }
@@ -1039,6 +1058,17 @@ public final class FieldLedgerWin7App {
             }
         }
         return combo;
+    }
+
+    private JComboBox<String> optionCombo(String[] values) {
+        JComboBox<String> combo = new JComboBox<String>(values);
+        combo.setEditable(true);
+        return combo;
+    }
+
+    private String selectedString(JComboBox<String> combo) {
+        Object value = combo.getSelectedItem();
+        return value == null ? "" : value.toString();
     }
 
     private String selectedId(JComboBox<Item> combo) {

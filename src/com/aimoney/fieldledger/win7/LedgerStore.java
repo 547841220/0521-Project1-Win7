@@ -18,6 +18,11 @@ import java.util.List;
 import java.util.Properties;
 
 final class LedgerStore {
+    static final String PUBLIC_TYPE_NORMAL = "普通公账";
+    static final String PUBLIC_TYPE_AVERAGE = "公账平均";
+    static final String[] PUBLIC_EXPENSE_TYPES = { PUBLIC_TYPE_NORMAL, PUBLIC_TYPE_AVERAGE };
+    static final String[] PUBLIC_EXPENSE_CATEGORIES = { "日常生活", "电费", "材料", "药", "肥", "油耗", "固定消耗", "其他" };
+
     final File dataDir;
     final List<Manager> managers = new ArrayList<Manager>();
     final List<Plot> plots = new ArrayList<Plot>();
@@ -149,6 +154,11 @@ final class LedgerStore {
         }
         for (PublicExpense row : publicExpenses) {
             summary.publicExpenseCents += row.totalCents();
+            if (PUBLIC_TYPE_AVERAGE.equals(row.accountType)) {
+                summary.publicAverageExpenseCents += row.totalCents();
+            } else {
+                summary.publicNormalExpenseCents += row.totalCents();
+            }
         }
         for (FixedExpense row : fixedExpenses) {
             summary.fixedExpenseCents += row.amountCents;
@@ -200,9 +210,10 @@ final class LedgerStore {
         CsvWriter.write(new File(dir, "02-地块投入明细.csv"), new String[] { "日期", "地块", "管理人", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, plotInputRows());
         CsvWriter.write(new File(dir, "03-工资用工明细.csv"), new String[] { "日期", "地块", "管理人", "项目", "男工数", "男工单价", "男工金额", "女工数", "女工单价", "女工金额", "车费", "合计", "备注" }, laborRows());
         CsvWriter.write(new File(dir, "04-出货记录.csv"), new String[] { "日期", "地块", "管理人", "车次", "毛重公斤", "毛重斤", "筐数", "单筐皮重", "总皮重", "扣除名目", "扣除重量", "净重斤", "单价", "总价", "备注" }, shipmentRows());
-        CsvWriter.write(new File(dir, "05-公账支出.csv"), new String[] { "日期", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, publicExpenseRows());
+        CsvWriter.write(new File(dir, "05-公账支出.csv"), new String[] { "账目类型", "日期", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, publicExpenseRows());
         CsvWriter.write(new File(dir, "06-固定账.csv"), new String[] { "日期", "类别", "名称", "金额", "使用月数", "备注" }, fixedExpenseRows());
         CsvWriter.write(new File(dir, "07-总账核对.csv"), new String[] { "项目", "金额" }, checkRows());
+        CsvWriter.write(new File(dir, "08-公账分类汇总.csv"), new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows());
         return dir;
     }
 
@@ -291,7 +302,28 @@ final class LedgerStore {
     private List<String[]> publicExpenseRows() {
         List<String[]> rows = new ArrayList<String[]>();
         for (PublicExpense row : publicExpenses) {
-            rows.add(new String[] { row.date, row.category, row.name, Money.number(row.quantity), row.unit, Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note });
+            rows.add(new String[] { publicType(row.accountType), row.date, row.category, row.name, Money.number(row.quantity), row.unit, Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note });
+        }
+        return rows;
+    }
+
+    List<String[]> publicExpenseSummaryRows() {
+        List<String[]> rows = new ArrayList<String[]>();
+        for (String type : PUBLIC_EXPENSE_TYPES) {
+            for (String category : PUBLIC_EXPENSE_CATEGORIES) {
+                long total = publicExpenseTotal(type, category);
+                if (total != 0L) {
+                    rows.add(new String[] { type, category, Money.centsToYuan(total) });
+                }
+            }
+        }
+        long otherNormal = publicExpenseUnlistedTotal(PUBLIC_TYPE_NORMAL);
+        if (otherNormal != 0L) {
+            rows.add(new String[] { PUBLIC_TYPE_NORMAL, "未分类", Money.centsToYuan(otherNormal) });
+        }
+        long otherAverage = publicExpenseUnlistedTotal(PUBLIC_TYPE_AVERAGE);
+        if (otherAverage != 0L) {
+            rows.add(new String[] { PUBLIC_TYPE_AVERAGE, "未分类", Money.centsToYuan(otherAverage) });
         }
         return rows;
     }
@@ -310,6 +342,8 @@ final class LedgerStore {
         rows.add(new String[] { "地块投入", Money.centsToYuan(summary.plotInputCents) });
         rows.add(new String[] { "工资用工", Money.centsToYuan(summary.laborCents) });
         rows.add(new String[] { "小组账合计/直接成本", Money.centsToYuan(summary.directCostCents) });
+        rows.add(new String[] { "普通公账", Money.centsToYuan(summary.publicNormalExpenseCents) });
+        rows.add(new String[] { "公账平均", Money.centsToYuan(summary.publicAverageExpenseCents) });
         rows.add(new String[] { "公账支出", Money.centsToYuan(summary.publicExpenseCents) });
         rows.add(new String[] { "固定账", Money.centsToYuan(summary.fixedExpenseCents) });
         rows.add(new String[] { "系统总开销", Money.centsToYuan(summary.operatingExpenseCents) });
@@ -317,6 +351,42 @@ final class LedgerStore {
         rows.add(new String[] { "差额", manualTotalCents == 0L ? "" : Money.centsToYuan(summary.differenceCents) });
         rows.add(new String[] { "备注", expenseCheckNote });
         return rows;
+    }
+
+    long publicExpenseTotal(String accountType, String category) {
+        long total = 0L;
+        for (PublicExpense row : publicExpenses) {
+            if (publicType(row.accountType).equals(accountType) && category.equals(row.category)) {
+                total += row.totalCents();
+            }
+        }
+        return total;
+    }
+
+    private long publicExpenseUnlistedTotal(String accountType) {
+        long total = 0L;
+        for (PublicExpense row : publicExpenses) {
+            if (publicType(row.accountType).equals(accountType) && !isKnownPublicCategory(row.category)) {
+                total += row.totalCents();
+            }
+        }
+        return total;
+    }
+
+    static String publicType(String value) {
+        if (PUBLIC_TYPE_AVERAGE.equals(value)) {
+            return PUBLIC_TYPE_AVERAGE;
+        }
+        return PUBLIC_TYPE_NORMAL;
+    }
+
+    private static boolean isKnownPublicCategory(String category) {
+        for (String known : PUBLIC_EXPENSE_CATEGORIES) {
+            if (known.equals(category)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void seedIfEmpty() {
@@ -383,6 +453,8 @@ final class LedgerStore {
         long laborCents;
         long directCostCents;
         long publicExpenseCents;
+        long publicNormalExpenseCents;
+        long publicAverageExpenseCents;
         long fixedExpenseCents;
         long operatingExpenseCents;
         long profitCents;
