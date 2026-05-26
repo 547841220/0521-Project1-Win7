@@ -5,13 +5,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "src/**"
-      - "installer/**"
-      - "package/**"
-      - "build-windows.bat"
-      - "package-windows-installer.bat"
-      - ".github/workflows/windows7-build.yml"
 
 jobs:
   build-win7-installer:
