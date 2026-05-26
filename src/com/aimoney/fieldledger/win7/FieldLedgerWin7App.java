@@ -155,7 +155,11 @@ public final class FieldLedgerWin7App {
         JButton button = new JButton(label);
         button.setFocusPainted(false);
         button.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
+        button.setBorderPainted(false);
+        button.setContentAreaFilled(false);
+        button.setOpaque(true);
         button.setHorizontalAlignment(JButton.LEFT);
+        button.setFont(new Font("Microsoft YaHei", Font.BOLD, 14));
         button.setForeground(new Color(220, 227, 220));
         button.setBackground(DARK);
         button.addActionListener(e -> openPage(key));
@@ -167,10 +171,12 @@ public final class FieldLedgerWin7App {
         currentPage = key;
         for (JButton button : navButtons) {
             button.setBackground(DARK);
+            button.setForeground(new Color(220, 227, 220));
         }
         int index = pageIndex(key);
         if (index >= 0 && index < navButtons.size()) {
             navButtons.get(index).setBackground(DARK_ACTIVE);
+            navButtons.get(index).setForeground(Color.WHITE);
         }
 
         content.removeAll();
@@ -889,6 +895,10 @@ public final class FieldLedgerWin7App {
     private JButton actionButton(String label) {
         JButton button = new JButton(label);
         button.setFocusPainted(false);
+        button.setOpaque(true);
+        button.setContentAreaFilled(false);
+        button.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(61, 105, 74)), BorderFactory.createEmptyBorder(6, 14, 6, 14)));
+        button.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
         button.setBackground(new Color(71, 125, 87));
         button.setForeground(Color.WHITE);
         return button;
@@ -897,6 +907,10 @@ public final class FieldLedgerWin7App {
     private JButton secondaryButton(String label) {
         JButton button = new JButton(label);
         button.setFocusPainted(false);
+        button.setOpaque(true);
+        button.setContentAreaFilled(false);
+        button.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(215, 208, 194)), BorderFactory.createEmptyBorder(6, 14, 6, 14)));
+        button.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
         button.setBackground(new Color(247, 242, 233));
         button.setForeground(new Color(41, 52, 46));
         return button;
@@ -1106,7 +1120,7 @@ public final class FieldLedgerWin7App {
 
     private void setLookAndFeel() {
         try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
         } catch (Exception ignored) {
             // Keep Swing's default look and feel when the system one is unavailable.
         }
