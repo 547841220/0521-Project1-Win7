@@ -10,6 +10,7 @@ import com.aimoney.fieldledger.win7.Models.Plot;
 import com.aimoney.fieldledger.win7.Models.PlotInput;
 import com.aimoney.fieldledger.win7.Models.PublicExpense;
 import com.aimoney.fieldledger.win7.Models.Shipment;
+import com.aimoney.fieldledger.win7.LedgerStore.TeamLaborSummary;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -469,6 +470,7 @@ public final class FieldLedgerWin7App {
     private JPanel laborPage() {
         final JTextField date = field(today());
         final JComboBox<Item> plot = plotCombo();
+        final JTextField teamLeader = field();
         final JTextField project = field();
         final JTextField maleCount = field("0");
         final JTextField malePrice = field("0");
@@ -476,22 +478,23 @@ public final class FieldLedgerWin7App {
         final JTextField femalePrice = field("0");
         final JTextField vehicle = field("0");
         final JTextField note = field();
-        final JTable table = table(new String[] { "日期", "地块", "管理人", "项目", "男工数", "男工单价", "男工金额", "女工数", "女工单价", "女工金额", "车费", "合计", "备注" }, laborRows());
+        final JTable table = table(new String[] { "日期", "团队头", "地块", "管理人", "项目", "男工数", "男工单价", "男工金额", "女工数", "女工单价", "女工金额", "车费", "合计", "备注" }, laborRows());
         final String[] selectedId = new String[] { "" };
 
         JPanel form = formPanel();
         addField(form, 0, "日期", date);
         addField(form, 1, "地块", plot);
-        addField(form, 2, "项目", project);
-        addField(form, 3, "男工数", maleCount);
-        addField(form, 4, "男工单价", malePrice);
-        addField(form, 5, "女工数", femaleCount);
-        addField(form, 6, "女工单价", femalePrice);
-        addField(form, 7, "车费", vehicle);
-        addField(form, 8, "备注", note);
-        addActions(form, 9, new Runnable() {
+        addField(form, 2, "团队头", teamLeader);
+        addField(form, 3, "项目", project);
+        addField(form, 4, "男工数", maleCount);
+        addField(form, 5, "男工单价", malePrice);
+        addField(form, 6, "女工数", femaleCount);
+        addField(form, 7, "女工单价", femalePrice);
+        addField(form, 8, "车费", vehicle);
+        addField(form, 9, "备注", note);
+        addActions(form, 10, new Runnable() {
             public void run() {
-                LaborRecord row = selectedId[0].isEmpty() ? new LaborRecord(date.getText(), selectedId(plot), project.getText(), Money.parseDouble(maleCount.getText()), Money.yuanToCents(malePrice.getText()), Money.parseDouble(femaleCount.getText()), Money.yuanToCents(femalePrice.getText()), Money.yuanToCents(vehicle.getText()), note.getText()) : findLabor(selectedId[0]);
+                LaborRecord row = selectedId[0].isEmpty() ? new LaborRecord(date.getText(), selectedId(plot), project.getText(), Money.parseDouble(maleCount.getText()), Money.yuanToCents(malePrice.getText()), Money.parseDouble(femaleCount.getText()), Money.yuanToCents(femalePrice.getText()), Money.yuanToCents(vehicle.getText()), teamLeader.getText(), note.getText()) : findLabor(selectedId[0]);
                 row.date = date.getText();
                 row.plotId = selectedId(plot);
                 row.projectName = project.getText();
@@ -500,6 +503,7 @@ public final class FieldLedgerWin7App {
                 row.femaleCount = Money.parseDouble(femaleCount.getText());
                 row.femalePriceCents = Money.yuanToCents(femalePrice.getText());
                 row.vehicleAmountCents = Money.yuanToCents(vehicle.getText());
+                row.teamLeader = teamLeader.getText();
                 row.note = note.getText();
                 if (selectedId[0].isEmpty()) {
                     store.laborRecords.add(row);
@@ -517,6 +521,7 @@ public final class FieldLedgerWin7App {
                 selectedId[0] = row.id;
                 date.setText(row.date);
                 selectCombo(plot, row.plotId);
+                teamLeader.setText(row.teamLeader);
                 project.setText(row.projectName);
                 maleCount.setText(String.valueOf(row.maleCount));
                 malePrice.setText(Money.centsInput(row.malePriceCents));
@@ -538,9 +543,10 @@ public final class FieldLedgerWin7App {
         final JTextField basketWeight = field("0");
         final JTextField deductionName = field();
         final JTextField deductionWeight = field("0");
+        final JTextField netWeight = field();
         final JTextField price = field("0");
         final JTextField note = field();
-        final JTable table = table(new String[] { "日期", "地块", "管理人", "车次", "毛重公斤", "毛重斤", "筐数", "单筐皮重", "总皮重", "扣除", "扣重", "净重斤", "单价", "总价", "备注" }, shipmentRows());
+        final JTable table = table(new String[] { "日期", "地块", "管理人", "车次", "毛重公斤", "毛重斤", "筐数", "单筐皮重", "总皮重", "扣除", "扣重", "自动净重斤", "净重斤", "单价", "总价", "备注" }, shipmentRows());
         final String[] selectedId = new String[] { "" };
 
         JPanel form = formPanel();
@@ -552,11 +558,12 @@ public final class FieldLedgerWin7App {
         addField(form, 5, "单筐皮重", basketWeight);
         addField(form, 6, "扣除名目", deductionName);
         addField(form, 7, "扣除重量", deductionWeight);
-        addField(form, 8, "单价", price);
-        addField(form, 9, "备注", note);
-        addActions(form, 10, new Runnable() {
+        addField(form, 8, "净重斤", netWeight);
+        addField(form, 9, "单价", price);
+        addField(form, 10, "备注", note);
+        addActions(form, 11, new Runnable() {
             public void run() {
-                Shipment row = selectedId[0].isEmpty() ? new Shipment(date.getText(), selectedId(plot), Money.parseInt(batch.getText()), Money.parseDouble(grossKg.getText()), Money.parseDouble(basketCount.getText()), Money.parseDouble(basketWeight.getText()), deductionName.getText(), Money.parseDouble(deductionWeight.getText()), Money.yuanToCents(price.getText()), note.getText()) : findShipment(selectedId[0]);
+                Shipment row = selectedId[0].isEmpty() ? new Shipment(date.getText(), selectedId(plot), Money.parseInt(batch.getText()), Money.parseDouble(grossKg.getText()), Money.parseDouble(basketCount.getText()), Money.parseDouble(basketWeight.getText()), deductionName.getText(), Money.parseDouble(deductionWeight.getText()), Money.parseDouble(netWeight.getText()), Money.yuanToCents(price.getText()), note.getText()) : findShipment(selectedId[0]);
                 row.date = date.getText();
                 row.plotId = selectedId(plot);
                 row.batchNo = Money.parseInt(batch.getText());
@@ -565,6 +572,7 @@ public final class FieldLedgerWin7App {
                 row.basketWeight = Money.parseDouble(basketWeight.getText());
                 row.deductionName = deductionName.getText();
                 row.deductionWeight = Money.parseDouble(deductionWeight.getText());
+                row.manualNetWeightJin = Money.parseDouble(netWeight.getText());
                 row.unitPriceCents = Money.yuanToCents(price.getText());
                 row.note = note.getText();
                 if (selectedId[0].isEmpty()) {
@@ -589,6 +597,7 @@ public final class FieldLedgerWin7App {
                 basketWeight.setText(String.valueOf(row.basketWeight));
                 deductionName.setText(row.deductionName);
                 deductionWeight.setText(String.valueOf(row.deductionWeight));
+                netWeight.setText(row.hasManualNetWeight() ? Money.number(row.manualNetWeightJin) : "");
                 price.setText(Money.centsInput(row.unitPriceCents));
                 note.setText(row.note);
             }
@@ -712,9 +721,10 @@ public final class FieldLedgerWin7App {
         final JTextField note = field(store.expenseCheckNote);
 
         JPanel page = pagePanel();
-        JPanel tableArea = new JPanel(new GridLayout(2, 1, 0, 16));
+        JPanel tableArea = new JPanel(new GridLayout(3, 1, 0, 16));
         tableArea.setOpaque(false);
         tableArea.add(wrapTable("地块利润核对", table(new String[] { "地块", "管理人", "出货收入", "地块投入", "工资用工", "直接成本", "利润" }, profitTableRows(true))));
+        tableArea.add(wrapTable("团队工资汇总", table(new String[] { "团队头", "男工金额", "女工金额", "车费", "合计" }, teamLaborSummaryRows())));
         tableArea.add(wrapTable("公账分类汇总", table(new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows())));
         page.add(tableArea, BorderLayout.CENTER);
 
@@ -753,7 +763,7 @@ public final class FieldLedgerWin7App {
         JPanel page = pagePanel();
         JPanel box = panelBox();
         box.setLayout(new BorderLayout(16, 16));
-        JLabel text = new JLabel("<html><h2>导出 Excel 可打开的 CSV 文件</h2><p>会生成地块利润、地块投入、工资用工、出货记录、公账、固定账、总账核对、公账分类汇总共 8 个文件。</p><p>数据目录: " + store.dataDir.getAbsolutePath() + "</p></html>");
+        JLabel text = new JLabel("<html><h2>导出 Excel 可打开的 CSV 文件</h2><p>会生成地块利润、地块投入、工资用工、出货记录、公账、固定账、总账核对、公账分类汇总、团队工资汇总共 9 个文件。</p><p>数据目录: " + store.dataDir.getAbsolutePath() + "</p></html>");
         JButton export = actionButton("导出到本地数据目录");
         export.addActionListener(e -> {
             try {
@@ -974,19 +984,29 @@ public final class FieldLedgerWin7App {
     }
 
     private Object[][] laborRows() {
-        Object[][] rows = new Object[store.laborRecords.size()][13];
+        Object[][] rows = new Object[store.laborRecords.size()][14];
         for (int i = 0; i < store.laborRecords.size(); i++) {
             LaborRecord row = store.laborRecords.get(i);
-            rows[i] = new Object[] { row.date, store.plotCode(row.plotId), store.plotManagerName(row.plotId), row.projectName, Money.number(row.maleCount), Money.centsToYuan(row.malePriceCents), Money.centsToYuan(row.maleAmountCents()), Money.number(row.femaleCount), Money.centsToYuan(row.femalePriceCents), Money.centsToYuan(row.femaleAmountCents()), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents()), row.note };
+            rows[i] = new Object[] { row.date, store.laborTeamLeader(row), store.plotCode(row.plotId), store.plotManagerName(row.plotId), row.projectName, Money.number(row.maleCount), Money.centsToYuan(row.malePriceCents), Money.centsToYuan(row.maleAmountCents()), Money.number(row.femaleCount), Money.centsToYuan(row.femalePriceCents), Money.centsToYuan(row.femaleAmountCents()), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents()), row.note };
         }
         return rows;
     }
 
     private Object[][] shipmentRows() {
-        Object[][] rows = new Object[store.shipments.size()][15];
+        Object[][] rows = new Object[store.shipments.size()][16];
         for (int i = 0; i < store.shipments.size(); i++) {
             Shipment row = store.shipments.get(i);
-            rows[i] = new Object[] { row.date, store.plotCode(row.plotId), store.plotManagerName(row.plotId), row.batchNo, Money.number(row.grossWeightKg), Money.number(row.grossWeightJin()), Money.number(row.basketCount), Money.number(row.basketWeight), Money.number(row.tareWeight()), row.deductionName, Money.number(row.deductionWeight), Money.number(row.netWeightJin()), Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note };
+            rows[i] = new Object[] { row.date, store.plotCode(row.plotId), store.plotManagerName(row.plotId), row.batchNo, Money.number(row.grossWeightKg), Money.number(row.grossWeightJin()), Money.number(row.basketCount), Money.number(row.basketWeight), Money.number(row.tareWeight()), row.deductionName, Money.number(row.deductionWeight), Money.number(row.autoNetWeightJin()), Money.number(row.netWeightJin()), Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note };
+        }
+        return rows;
+    }
+
+    private Object[][] teamLaborSummaryRows() {
+        List<TeamLaborSummary> summaries = store.teamLaborSummaries();
+        Object[][] rows = new Object[summaries.size()][5];
+        for (int i = 0; i < summaries.size(); i++) {
+            TeamLaborSummary row = summaries.get(i);
+            rows[i] = new Object[] { row.teamLeader, Money.centsToYuan(row.maleAmountCents), Money.centsToYuan(row.femaleAmountCents), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents) };
         }
         return rows;
     }

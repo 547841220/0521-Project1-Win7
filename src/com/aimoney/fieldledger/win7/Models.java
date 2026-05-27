@@ -182,9 +182,10 @@ final class Models {
         double femaleCount;
         long femalePriceCents;
         long vehicleAmountCents;
+        String teamLeader;
         String note;
 
-        LaborRecord(String date, String plotId, String projectName, double maleCount, long malePriceCents, double femaleCount, long femalePriceCents, long vehicleAmountCents, String note) {
+        LaborRecord(String date, String plotId, String projectName, double maleCount, long malePriceCents, double femaleCount, long femalePriceCents, long vehicleAmountCents, String teamLeader, String note) {
             this.id = id();
             this.date = date;
             this.plotId = plotId;
@@ -194,6 +195,7 @@ final class Models {
             this.femaleCount = femaleCount;
             this.femalePriceCents = femalePriceCents;
             this.vehicleAmountCents = vehicleAmountCents;
+            this.teamLeader = teamLeader;
             this.note = note;
         }
 
@@ -208,6 +210,7 @@ final class Models {
             this.femalePriceCents = longVal(values, 7);
             this.vehicleAmountCents = longVal(values, 8);
             this.note = val(values, 9);
+            this.teamLeader = val(values, 10);
         }
 
         long maleAmountCents() {
@@ -223,7 +226,7 @@ final class Models {
         }
 
         String[] values() {
-            return new String[] { id, date, plotId, projectName, String.valueOf(maleCount), String.valueOf(malePriceCents), String.valueOf(femaleCount), String.valueOf(femalePriceCents), String.valueOf(vehicleAmountCents), note };
+            return new String[] { id, date, plotId, projectName, String.valueOf(maleCount), String.valueOf(malePriceCents), String.valueOf(femaleCount), String.valueOf(femalePriceCents), String.valueOf(vehicleAmountCents), note, teamLeader };
         }
     }
 
@@ -238,9 +241,10 @@ final class Models {
         String deductionName;
         double deductionWeight;
         long unitPriceCents;
+        double manualNetWeightJin;
         String note;
 
-        Shipment(String date, String plotId, int batchNo, double grossWeightKg, double basketCount, double basketWeight, String deductionName, double deductionWeight, long unitPriceCents, String note) {
+        Shipment(String date, String plotId, int batchNo, double grossWeightKg, double basketCount, double basketWeight, String deductionName, double deductionWeight, double manualNetWeightJin, long unitPriceCents, String note) {
             this.id = id();
             this.date = date;
             this.plotId = plotId;
@@ -250,6 +254,7 @@ final class Models {
             this.basketWeight = basketWeight;
             this.deductionName = deductionName;
             this.deductionWeight = deductionWeight;
+            this.manualNetWeightJin = manualNetWeightJin;
             this.unitPriceCents = unitPriceCents;
             this.note = note;
         }
@@ -266,6 +271,7 @@ final class Models {
             this.deductionWeight = doubleVal(values, 8);
             this.unitPriceCents = longVal(values, 9);
             this.note = val(values, 10);
+            this.manualNetWeightJin = doubleVal(values, 11);
         }
 
         double grossWeightJin() {
@@ -276,8 +282,16 @@ final class Models {
             return basketCount * basketWeight;
         }
 
-        double netWeightJin() {
+        double autoNetWeightJin() {
             return grossWeightJin() - tareWeight() - deductionWeight;
+        }
+
+        boolean hasManualNetWeight() {
+            return manualNetWeightJin > 0D;
+        }
+
+        double netWeightJin() {
+            return hasManualNetWeight() ? manualNetWeightJin : autoNetWeightJin();
         }
 
         long totalCents() {
@@ -285,7 +299,7 @@ final class Models {
         }
 
         String[] values() {
-            return new String[] { id, date, plotId, String.valueOf(batchNo), String.valueOf(grossWeightKg), String.valueOf(basketCount), String.valueOf(basketWeight), deductionName, String.valueOf(deductionWeight), String.valueOf(unitPriceCents), note };
+            return new String[] { id, date, plotId, String.valueOf(batchNo), String.valueOf(grossWeightKg), String.valueOf(basketCount), String.valueOf(basketWeight), deductionName, String.valueOf(deductionWeight), String.valueOf(unitPriceCents), note, String.valueOf(manualNetWeightJin) };
         }
     }
 

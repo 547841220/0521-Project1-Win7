@@ -14,7 +14,9 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 final class LedgerStore {
@@ -208,12 +210,13 @@ final class LedgerStore {
 
         CsvWriter.write(new File(dir, "01-地块利润汇总.csv"), new String[] { "地块", "管理人", "出货收入", "地块投入", "工资用工", "直接成本", "利润" }, plotProfitRows());
         CsvWriter.write(new File(dir, "02-地块投入明细.csv"), new String[] { "日期", "地块", "管理人", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, plotInputRows());
-        CsvWriter.write(new File(dir, "03-工资用工明细.csv"), new String[] { "日期", "地块", "管理人", "项目", "男工数", "男工单价", "男工金额", "女工数", "女工单价", "女工金额", "车费", "合计", "备注" }, laborRows());
-        CsvWriter.write(new File(dir, "04-出货记录.csv"), new String[] { "日期", "地块", "管理人", "车次", "毛重公斤", "毛重斤", "筐数", "单筐皮重", "总皮重", "扣除名目", "扣除重量", "净重斤", "单价", "总价", "备注" }, shipmentRows());
+        CsvWriter.write(new File(dir, "03-工资用工明细.csv"), new String[] { "日期", "团队头", "地块", "管理人", "项目", "男工数", "男工单价", "男工金额", "女工数", "女工单价", "女工金额", "车费", "合计", "备注" }, laborRows());
+        CsvWriter.write(new File(dir, "04-出货记录.csv"), new String[] { "日期", "地块", "管理人", "车次", "毛重公斤", "毛重斤", "筐数", "单筐皮重", "总皮重", "扣除名目", "扣除重量", "自动净重斤", "净重斤", "单价", "总价", "备注" }, shipmentRows());
         CsvWriter.write(new File(dir, "05-公账支出.csv"), new String[] { "账目类型", "日期", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, publicExpenseRows());
         CsvWriter.write(new File(dir, "06-固定账.csv"), new String[] { "日期", "类别", "名称", "金额", "使用月数", "备注" }, fixedExpenseRows());
         CsvWriter.write(new File(dir, "07-总账核对.csv"), new String[] { "项目", "金额" }, checkRows());
         CsvWriter.write(new File(dir, "08-公账分类汇总.csv"), new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows());
+        CsvWriter.write(new File(dir, "09-团队工资汇总.csv"), new String[] { "团队头", "男工金额", "女工金额", "车费", "合计" }, teamLaborSummaryRows());
         return dir;
     }
 
@@ -230,6 +233,14 @@ final class LedgerStore {
     String plotManagerName(String plotId) {
         Plot plot = findPlot(plotId);
         return plot == null ? "" : managerName(plot.managerId);
+    }
+
+    String laborTeamLeader(LaborRecord row) {
+        if (row.teamLeader != null && !row.teamLeader.trim().isEmpty()) {
+            return row.teamLeader.trim();
+        }
+        String managerName = plotManagerName(row.plotId);
+        return managerName.isEmpty() ? "未填写团队头" : managerName;
     }
 
     Manager findManager(String id) {
@@ -286,7 +297,7 @@ final class LedgerStore {
     private List<String[]> laborRows() {
         List<String[]> rows = new ArrayList<String[]>();
         for (LaborRecord row : laborRecords) {
-            rows.add(new String[] { row.date, plotCode(row.plotId), plotManagerName(row.plotId), row.projectName, Money.number(row.maleCount), Money.centsToYuan(row.malePriceCents), Money.centsToYuan(row.maleAmountCents()), Money.number(row.femaleCount), Money.centsToYuan(row.femalePriceCents), Money.centsToYuan(row.femaleAmountCents()), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents()), row.note });
+            rows.add(new String[] { row.date, laborTeamLeader(row), plotCode(row.plotId), plotManagerName(row.plotId), row.projectName, Money.number(row.maleCount), Money.centsToYuan(row.malePriceCents), Money.centsToYuan(row.maleAmountCents()), Money.number(row.femaleCount), Money.centsToYuan(row.femalePriceCents), Money.centsToYuan(row.femaleAmountCents()), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents()), row.note });
         }
         return rows;
     }
@@ -294,7 +305,39 @@ final class LedgerStore {
     private List<String[]> shipmentRows() {
         List<String[]> rows = new ArrayList<String[]>();
         for (Shipment row : shipments) {
-            rows.add(new String[] { row.date, plotCode(row.plotId), plotManagerName(row.plotId), String.valueOf(row.batchNo), Money.number(row.grossWeightKg), Money.number(row.grossWeightJin()), Money.number(row.basketCount), Money.number(row.basketWeight), Money.number(row.tareWeight()), row.deductionName, Money.number(row.deductionWeight), Money.number(row.netWeightJin()), Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note });
+            rows.add(new String[] { row.date, plotCode(row.plotId), plotManagerName(row.plotId), String.valueOf(row.batchNo), Money.number(row.grossWeightKg), Money.number(row.grossWeightJin()), Money.number(row.basketCount), Money.number(row.basketWeight), Money.number(row.tareWeight()), row.deductionName, Money.number(row.deductionWeight), Money.number(row.autoNetWeightJin()), Money.number(row.netWeightJin()), Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note });
+        }
+        return rows;
+    }
+
+    List<TeamLaborSummary> teamLaborSummaries() {
+        Map<String, TeamLaborSummary> grouped = new LinkedHashMap<String, TeamLaborSummary>();
+        for (LaborRecord row : laborRecords) {
+            String leader = laborTeamLeader(row);
+            TeamLaborSummary summary = grouped.get(leader);
+            if (summary == null) {
+                summary = new TeamLaborSummary();
+                summary.teamLeader = leader;
+                grouped.put(leader, summary);
+            }
+            summary.maleAmountCents += row.maleAmountCents();
+            summary.femaleAmountCents += row.femaleAmountCents();
+            summary.vehicleAmountCents += row.vehicleAmountCents;
+            summary.totalCents += row.totalCents();
+        }
+        return new ArrayList<TeamLaborSummary>(grouped.values());
+    }
+
+    private List<String[]> teamLaborSummaryRows() {
+        List<String[]> rows = new ArrayList<String[]>();
+        for (TeamLaborSummary row : teamLaborSummaries()) {
+            rows.add(new String[] {
+                row.teamLeader,
+                Money.centsToYuan(row.maleAmountCents),
+                Money.centsToYuan(row.femaleAmountCents),
+                Money.centsToYuan(row.vehicleAmountCents),
+                Money.centsToYuan(row.totalCents)
+            });
         }
         return rows;
     }
@@ -471,5 +514,13 @@ final class LedgerStore {
         long laborCents;
         long directCostCents;
         long profitCents;
+    }
+
+    static final class TeamLaborSummary {
+        String teamLeader;
+        long maleAmountCents;
+        long femaleAmountCents;
+        long vehicleAmountCents;
+        long totalCents;
     }
 }
