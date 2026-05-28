@@ -10,6 +10,7 @@ import com.aimoney.fieldledger.win7.Models.Plot;
 import com.aimoney.fieldledger.win7.Models.PlotInput;
 import com.aimoney.fieldledger.win7.Models.PublicExpense;
 import com.aimoney.fieldledger.win7.Models.Shipment;
+import com.aimoney.fieldledger.win7.LedgerStore.ManagerTeamLaborSummary;
 import com.aimoney.fieldledger.win7.LedgerStore.TeamLaborSummary;
 
 import javax.swing.BorderFactory;
@@ -531,7 +532,14 @@ public final class FieldLedgerWin7App {
                 note.setText(row.note);
             }
         });
-        return crudPage(form, table);
+        JPanel page = pagePanel();
+        JPanel tableArea = new JPanel(new GridLayout(2, 1, 0, 16));
+        tableArea.setOpaque(false);
+        tableArea.add(wrapTable("明细列表", table));
+        tableArea.add(wrapTable("工资统计", table(new String[] { "管理人", "团队头", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, managerTeamLaborSummaryRows())));
+        page.add(form, BorderLayout.NORTH);
+        page.add(tableArea, BorderLayout.CENTER);
+        return page;
     }
 
     private JPanel shipmentsPage() {
@@ -763,7 +771,7 @@ public final class FieldLedgerWin7App {
         JPanel page = pagePanel();
         JPanel box = panelBox();
         box.setLayout(new BorderLayout(16, 16));
-        JLabel text = new JLabel("<html><h2>导出 Excel 可打开的 CSV 文件</h2><p>会生成地块利润、地块投入、工资用工、出货记录、公账、固定账、总账核对、公账分类汇总、团队工资汇总共 9 个文件。</p><p>数据目录: " + store.dataDir.getAbsolutePath() + "</p></html>");
+        JLabel text = new JLabel("<html><h2>导出 Excel 可打开的 CSV 文件</h2><p>会生成地块利润、地块投入、工资用工、出货记录、公账、固定账、总账核对、公账分类汇总、团队工资汇总、管理人工资统计共 10 个文件。</p><p>数据目录: " + store.dataDir.getAbsolutePath() + "</p></html>");
         JButton export = actionButton("导出到本地数据目录");
         export.addActionListener(e -> {
             try {
@@ -1007,6 +1015,16 @@ public final class FieldLedgerWin7App {
         for (int i = 0; i < summaries.size(); i++) {
             TeamLaborSummary row = summaries.get(i);
             rows[i] = new Object[] { row.teamLeader, Money.centsToYuan(row.maleAmountCents), Money.centsToYuan(row.femaleAmountCents), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents) };
+        }
+        return rows;
+    }
+
+    private Object[][] managerTeamLaborSummaryRows() {
+        List<ManagerTeamLaborSummary> summaries = store.managerTeamLaborSummaries();
+        Object[][] rows = new Object[summaries.size()][8];
+        for (int i = 0; i < summaries.size(); i++) {
+            ManagerTeamLaborSummary row = summaries.get(i);
+            rows[i] = new Object[] { row.managerName, row.teamLeader, Money.number(row.maleCount), Money.centsToYuan(row.maleAmountCents), Money.number(row.femaleCount), Money.centsToYuan(row.femaleAmountCents), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents) };
         }
         return rows;
     }

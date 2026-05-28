@@ -217,6 +217,7 @@ final class LedgerStore {
         CsvWriter.write(new File(dir, "07-总账核对.csv"), new String[] { "项目", "金额" }, checkRows());
         CsvWriter.write(new File(dir, "08-公账分类汇总.csv"), new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows());
         CsvWriter.write(new File(dir, "09-团队工资汇总.csv"), new String[] { "团队头", "男工金额", "女工金额", "车费", "合计" }, teamLaborSummaryRows());
+        CsvWriter.write(new File(dir, "10-管理人工资统计.csv"), new String[] { "管理人", "团队头", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, managerTeamLaborSummaryRows());
         return dir;
     }
 
@@ -328,12 +329,55 @@ final class LedgerStore {
         return new ArrayList<TeamLaborSummary>(grouped.values());
     }
 
+    List<ManagerTeamLaborSummary> managerTeamLaborSummaries() {
+        Map<String, ManagerTeamLaborSummary> grouped = new LinkedHashMap<String, ManagerTeamLaborSummary>();
+        for (LaborRecord row : laborRecords) {
+            String manager = plotManagerName(row.plotId);
+            if (manager.isEmpty()) {
+                manager = "未填写管理人";
+            }
+            String leader = laborTeamLeader(row);
+            String key = manager + "\t" + leader;
+            ManagerTeamLaborSummary summary = grouped.get(key);
+            if (summary == null) {
+                summary = new ManagerTeamLaborSummary();
+                summary.managerName = manager;
+                summary.teamLeader = leader;
+                grouped.put(key, summary);
+            }
+            summary.maleCount += row.maleCount;
+            summary.maleAmountCents += row.maleAmountCents();
+            summary.femaleCount += row.femaleCount;
+            summary.femaleAmountCents += row.femaleAmountCents();
+            summary.vehicleAmountCents += row.vehicleAmountCents;
+            summary.totalCents += row.totalCents();
+        }
+        return new ArrayList<ManagerTeamLaborSummary>(grouped.values());
+    }
+
     private List<String[]> teamLaborSummaryRows() {
         List<String[]> rows = new ArrayList<String[]>();
         for (TeamLaborSummary row : teamLaborSummaries()) {
             rows.add(new String[] {
                 row.teamLeader,
                 Money.centsToYuan(row.maleAmountCents),
+                Money.centsToYuan(row.femaleAmountCents),
+                Money.centsToYuan(row.vehicleAmountCents),
+                Money.centsToYuan(row.totalCents)
+            });
+        }
+        return rows;
+    }
+
+    private List<String[]> managerTeamLaborSummaryRows() {
+        List<String[]> rows = new ArrayList<String[]>();
+        for (ManagerTeamLaborSummary row : managerTeamLaborSummaries()) {
+            rows.add(new String[] {
+                row.managerName,
+                row.teamLeader,
+                Money.number(row.maleCount),
+                Money.centsToYuan(row.maleAmountCents),
+                Money.number(row.femaleCount),
                 Money.centsToYuan(row.femaleAmountCents),
                 Money.centsToYuan(row.vehicleAmountCents),
                 Money.centsToYuan(row.totalCents)
@@ -519,6 +563,17 @@ final class LedgerStore {
     static final class TeamLaborSummary {
         String teamLeader;
         long maleAmountCents;
+        long femaleAmountCents;
+        long vehicleAmountCents;
+        long totalCents;
+    }
+
+    static final class ManagerTeamLaborSummary {
+        String managerName;
+        String teamLeader;
+        double maleCount;
+        long maleAmountCents;
+        double femaleCount;
         long femaleAmountCents;
         long vehicleAmountCents;
         long totalCents;
