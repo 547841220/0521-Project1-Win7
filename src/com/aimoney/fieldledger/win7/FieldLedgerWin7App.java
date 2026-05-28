@@ -33,17 +33,23 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
+import javax.swing.border.AbstractBorder;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumn;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
@@ -53,11 +59,19 @@ import java.util.Date;
 import java.util.List;
 
 public final class FieldLedgerWin7App {
-    private static final Color DARK = new Color(23, 32, 27);
-    private static final Color DARK_ACTIVE = new Color(38, 54, 46);
-    private static final Color PAPER = new Color(244, 241, 234);
-    private static final Color PANEL = new Color(255, 253, 248);
-    private static final Color GOLD = new Color(229, 180, 90);
+    private static final Color SIDEBAR = new Color(248, 249, 251);
+    private static final Color SIDEBAR_ACTIVE = new Color(233, 239, 249);
+    private static final Color SIDEBAR_HOVER = new Color(241, 244, 248);
+    private static final Color PAPER = new Color(244, 245, 247);
+    private static final Color PANEL = Color.WHITE;
+    private static final Color TEXT = new Color(31, 35, 40);
+    private static final Color MUTED = new Color(102, 112, 133);
+    private static final Color BORDER = new Color(220, 225, 232);
+    private static final Color ACCENT = new Color(10, 132, 255);
+    private static final Color ACCENT_SOFT = new Color(229, 241, 255);
+    private static final Color DANGER = new Color(180, 35, 24);
+    private static final Font FONT_PLAIN = new Font("Microsoft YaHei", Font.PLAIN, 13);
+    private static final Font FONT_BOLD = new Font("Microsoft YaHei", Font.BOLD, 13);
 
     private final LedgerStore store = new LedgerStore();
     private final JFrame frame = new JFrame("农业经营记账 - Win7兼容版");
@@ -85,7 +99,8 @@ public final class FieldLedgerWin7App {
         }
 
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.setMinimumSize(new Dimension(1120, 720));
+        frame.setMinimumSize(new Dimension(1040, 700));
+        frame.getContentPane().setBackground(PAPER);
         frame.setLayout(new BorderLayout());
         frame.add(sidebar(), BorderLayout.WEST);
         frame.add(workspace(), BorderLayout.CENTER);
@@ -97,25 +112,29 @@ public final class FieldLedgerWin7App {
     private JPanel sidebar() {
         JPanel panel = new JPanel();
         panel.setLayout(new BorderLayout());
-        panel.setPreferredSize(new Dimension(248, 720));
-        panel.setBackground(DARK);
-        panel.setBorder(BorderFactory.createEmptyBorder(24, 18, 24, 18));
+        panel.setPreferredSize(new Dimension(232, 700));
+        panel.setBackground(SIDEBAR);
+        panel.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, BORDER));
 
         JPanel brand = new JPanel(new BorderLayout(12, 0));
         brand.setOpaque(false);
+        brand.setBorder(BorderFactory.createEmptyBorder(24, 18, 22, 18));
         JLabel mark = new JLabel("田", JLabel.CENTER);
         mark.setOpaque(true);
-        mark.setBackground(GOLD);
-        mark.setForeground(DARK);
-        mark.setFont(new Font("Microsoft YaHei", Font.BOLD, 18));
+        mark.setBackground(ACCENT);
+        mark.setForeground(Color.WHITE);
+        mark.setFont(new Font("Microsoft YaHei", Font.BOLD, 17));
         mark.setPreferredSize(new Dimension(42, 42));
-        JLabel name = new JLabel("<html><b>农业经营记账</b><br><span style='font-size:10px'>Win7兼容版</span></html>");
-        name.setForeground(Color.WHITE);
+        mark.setBorder(new RoundBorder(ACCENT, 10));
+        JLabel name = new JLabel("<html><b>农业经营记账</b><br><span style='font-size:10px;color:#667085'>Win7兼容版</span></html>");
+        name.setForeground(TEXT);
+        name.setFont(FONT_BOLD);
         brand.add(mark, BorderLayout.WEST);
         brand.add(name, BorderLayout.CENTER);
 
         JPanel nav = new JPanel(new GridLayout(0, 1, 0, 4));
         nav.setOpaque(false);
+        nav.setBorder(BorderFactory.createEmptyBorder(0, 12, 0, 12));
         addNav(nav, "dashboard", "首页概览");
         addNav(nav, "plots", "地块管理");
         addNav(nav, "managers", "管理人管理");
@@ -136,23 +155,25 @@ public final class FieldLedgerWin7App {
     private JPanel workspace() {
         JPanel panel = new JPanel(new BorderLayout(0, 22));
         panel.setBackground(PAPER);
-        panel.setBorder(BorderFactory.createEmptyBorder(28, 28, 28, 28));
+        panel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
 
-        JPanel topbar = new JPanel(new BorderLayout());
-        topbar.setOpaque(false);
+        JPanel topbar = panelBox(16);
+        topbar.setLayout(new BorderLayout());
         JLabel season = new JLabel("2026年第一期");
-        season.setForeground(new Color(104, 115, 109));
+        season.setForeground(MUTED);
         season.setFont(season.getFont().deriveFont(Font.BOLD, 12F));
-        title.setFont(new Font("Microsoft YaHei", Font.BOLD, 30));
-        title.setForeground(new Color(30, 40, 34));
+        title.setFont(new Font("Microsoft YaHei", Font.BOLD, 28));
+        title.setForeground(TEXT);
         JPanel titleBox = new JPanel(new BorderLayout());
         titleBox.setOpaque(false);
         titleBox.add(season, BorderLayout.NORTH);
         titleBox.add(title, BorderLayout.CENTER);
 
         status.setOpaque(true);
-        status.setBackground(new Color(255, 250, 240));
-        status.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(215, 208, 194)), BorderFactory.createEmptyBorder(8, 12, 8, 12)));
+        status.setBackground(ACCENT_SOFT);
+        status.setForeground(new Color(23, 83, 151));
+        status.setFont(FONT_BOLD);
+        status.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(new Color(190, 219, 255), 14), BorderFactory.createEmptyBorder(7, 12, 7, 12)));
         topbar.add(titleBox, BorderLayout.WEST);
         topbar.add(status, BorderLayout.EAST);
 
@@ -169,9 +190,24 @@ public final class FieldLedgerWin7App {
         button.setContentAreaFilled(false);
         button.setOpaque(true);
         button.setHorizontalAlignment(JButton.LEFT);
-        button.setFont(new Font("Microsoft YaHei", Font.BOLD, 14));
-        button.setForeground(new Color(220, 227, 220));
-        button.setBackground(DARK);
+        button.setFont(FONT_BOLD);
+        button.setForeground(MUTED);
+        button.setBackground(SIDEBAR);
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        button.putClientProperty("pageKey", key);
+        button.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) {
+                if (!key.equals(currentPage)) {
+                    button.setBackground(SIDEBAR_HOVER);
+                }
+            }
+
+            public void mouseExited(MouseEvent e) {
+                if (!key.equals(currentPage)) {
+                    button.setBackground(SIDEBAR);
+                }
+            }
+        });
         button.addActionListener(e -> openPage(key));
         navButtons.add(button);
         nav.add(button);
@@ -180,13 +216,13 @@ public final class FieldLedgerWin7App {
     private void openPage(String key) {
         currentPage = key;
         for (JButton button : navButtons) {
-            button.setBackground(DARK);
-            button.setForeground(new Color(220, 227, 220));
+            button.setBackground(SIDEBAR);
+            button.setForeground(MUTED);
         }
         int index = pageIndex(key);
         if (index >= 0 && index < navButtons.size()) {
-            navButtons.get(index).setBackground(DARK_ACTIVE);
-            navButtons.get(index).setForeground(Color.WHITE);
+            navButtons.get(index).setBackground(SIDEBAR_ACTIVE);
+            navButtons.get(index).setForeground(TEXT);
         }
 
         content.removeAll();
@@ -836,7 +872,7 @@ public final class FieldLedgerWin7App {
     private void addActions(JPanel form, int row, final Runnable saveAction, final Runnable deleteAction, final String[] selectedId) {
         JButton save = actionButton("保存");
         JButton clear = secondaryButton("清空");
-        JButton delete = secondaryButton("删除选中");
+        JButton delete = dangerButton("删除选中");
         save.addActionListener(e -> {
             try {
                 saveAction.run();
@@ -881,9 +917,12 @@ public final class FieldLedgerWin7App {
     }
 
     private JPanel panelBox() {
-        JPanel panel = new JPanel();
-        panel.setBackground(PANEL);
-        panel.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(222, 215, 202)), BorderFactory.createEmptyBorder(20, 20, 20, 20)));
+        return panelBox(20);
+    }
+
+    private JPanel panelBox(int padding) {
+        JPanel panel = new SurfacePanel(PANEL, 14);
+        panel.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(BORDER, 14), BorderFactory.createEmptyBorder(padding, padding, padding, padding)));
         return panel;
     }
 
@@ -897,8 +936,11 @@ public final class FieldLedgerWin7App {
         JPanel panel = panelBox();
         panel.setLayout(new BorderLayout(0, 12));
         JLabel label = new JLabel(heading);
-        label.setFont(new Font("Microsoft YaHei", Font.BOLD, 18));
+        label.setFont(new Font("Microsoft YaHei", Font.BOLD, 17));
+        label.setForeground(TEXT);
         JScrollPane scroll = new JScrollPane(table);
+        scroll.setBorder(new RoundBorder(new Color(232, 235, 241), 10));
+        scroll.getViewport().setBackground(Color.WHITE);
         scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         panel.add(label, BorderLayout.NORTH);
@@ -910,10 +952,12 @@ public final class FieldLedgerWin7App {
         JPanel panel = panelBox();
         panel.setLayout(new BorderLayout());
         JLabel name = new JLabel(label);
-        name.setForeground(new Color(92, 104, 97));
+        name.setForeground(MUTED);
+        name.setFont(FONT_BOLD);
         JLabel amount = new JLabel(value);
         amount.setFont(new Font("Microsoft YaHei", Font.BOLD, 24));
-        amount.setForeground(new Color(30, 40, 34));
+        amount.setForeground(TEXT);
+        amount.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
         panel.add(name, BorderLayout.NORTH);
         panel.add(amount, BorderLayout.CENTER);
         return panel;
@@ -925,13 +969,27 @@ public final class FieldLedgerWin7App {
 
     private JTextField field(String value) {
         JTextField field = new JTextField(value);
-        field.setPreferredSize(new Dimension(140, 32));
+        field.setPreferredSize(new Dimension(148, 34));
+        field.setFont(FONT_PLAIN);
+        field.setForeground(TEXT);
+        field.setBackground(Color.WHITE);
+        field.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(new Color(205, 213, 224), 9), BorderFactory.createEmptyBorder(5, 9, 5, 9)));
         return field;
     }
 
     private void addField(JPanel form, int row, String label, Component input) {
         JLabel fieldLabel = new JLabel(label);
         fieldLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 6));
+        fieldLabel.setForeground(MUTED);
+        fieldLabel.setFont(FONT_BOLD);
+        if (input instanceof JComboBox) {
+            input.setFont(FONT_PLAIN);
+            input.setBackground(Color.WHITE);
+        } else if (input instanceof JCheckBox) {
+            input.setFont(FONT_PLAIN);
+            input.setBackground(PANEL);
+            input.setForeground(TEXT);
+        }
         form.add(fieldLabel, gbc(row, 0));
         form.add(input, gbc(row, 1));
     }
@@ -965,11 +1023,12 @@ public final class FieldLedgerWin7App {
         JButton button = new JButton(label);
         button.setFocusPainted(false);
         button.setOpaque(true);
-        button.setContentAreaFilled(false);
-        button.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(61, 105, 74)), BorderFactory.createEmptyBorder(6, 14, 6, 14)));
-        button.setFont(new Font("Microsoft YaHei", Font.BOLD, 13));
-        button.setBackground(new Color(71, 125, 87));
+        button.setContentAreaFilled(true);
+        button.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(ACCENT, 10), BorderFactory.createEmptyBorder(7, 16, 7, 16)));
+        button.setFont(FONT_BOLD);
+        button.setBackground(ACCENT);
         button.setForeground(Color.WHITE);
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return button;
     }
 
@@ -977,11 +1036,20 @@ public final class FieldLedgerWin7App {
         JButton button = new JButton(label);
         button.setFocusPainted(false);
         button.setOpaque(true);
-        button.setContentAreaFilled(false);
-        button.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(215, 208, 194)), BorderFactory.createEmptyBorder(6, 14, 6, 14)));
-        button.setFont(new Font("Microsoft YaHei", Font.PLAIN, 13));
-        button.setBackground(new Color(247, 242, 233));
-        button.setForeground(new Color(41, 52, 46));
+        button.setContentAreaFilled(true);
+        button.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(BORDER, 10), BorderFactory.createEmptyBorder(7, 16, 7, 16)));
+        button.setFont(FONT_BOLD);
+        button.setBackground(new Color(248, 250, 252));
+        button.setForeground(TEXT);
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return button;
+    }
+
+    private JButton dangerButton(String label) {
+        JButton button = secondaryButton(label);
+        button.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(new Color(254, 205, 202), 10), BorderFactory.createEmptyBorder(7, 16, 7, 16)));
+        button.setBackground(new Color(255, 241, 240));
+        button.setForeground(DANGER);
         return button;
     }
 
@@ -990,15 +1058,38 @@ public final class FieldLedgerWin7App {
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
-        });
-        table.setFont(new Font("Microsoft YaHei", Font.PLAIN, 16));
-        table.setRowHeight(38);
+        }) {
+            public Component prepareRenderer(javax.swing.table.TableCellRenderer renderer, int row, int column) {
+                Component component = super.prepareRenderer(renderer, row, column);
+                if (isRowSelected(row)) {
+                    component.setBackground(ACCENT_SOFT);
+                    component.setForeground(TEXT);
+                } else {
+                    component.setBackground(row % 2 == 0 ? Color.WHITE : new Color(248, 250, 252));
+                    component.setForeground(TEXT);
+                }
+                return component;
+            }
+        };
+        table.setFont(FONT_PLAIN.deriveFont(14F));
+        table.setForeground(TEXT);
+        table.setGridColor(new Color(235, 238, 243));
+        table.setShowVerticalLines(false);
+        table.setShowHorizontalLines(true);
+        table.setIntercellSpacing(new Dimension(0, 1));
+        table.setRowHeight(40);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         table.setFillsViewportHeight(true);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.setSelectionBackground(ACCENT_SOFT);
+        table.setSelectionForeground(TEXT);
         table.getTableHeader().setReorderingAllowed(false);
-        table.getTableHeader().setFont(new Font("Microsoft YaHei", Font.BOLD, 16));
-        table.getTableHeader().setPreferredSize(new Dimension(0, 42));
+        table.getTableHeader().setFont(FONT_BOLD);
+        table.getTableHeader().setForeground(MUTED);
+        table.getTableHeader().setBackground(new Color(248, 250, 252));
+        table.getTableHeader().setPreferredSize(new Dimension(0, 40));
+        DefaultTableCellRenderer headerRenderer = (DefaultTableCellRenderer) table.getTableHeader().getDefaultRenderer();
+        headerRenderer.setHorizontalAlignment(JLabel.LEFT);
         for (int i = 0; i < headers.length; i++) {
             TableColumn column = table.getColumnModel().getColumn(i);
             column.setPreferredWidth(tableColumnWidth(headers[i]));
@@ -1311,8 +1402,65 @@ public final class FieldLedgerWin7App {
     private void setLookAndFeel() {
         try {
             UIManager.setLookAndFeel(UIManager.getCrossPlatformLookAndFeelClassName());
+            UIManager.put("Panel.background", PAPER);
+            UIManager.put("OptionPane.background", PAPER);
+            UIManager.put("OptionPane.messageForeground", TEXT);
+            UIManager.put("TabbedPane.font", FONT_BOLD);
+            UIManager.put("TabbedPane.selected", Color.WHITE);
+            UIManager.put("TextField.font", FONT_PLAIN);
+            UIManager.put("ComboBox.font", FONT_PLAIN);
+            UIManager.put("CheckBox.font", FONT_PLAIN);
         } catch (Exception ignored) {
             // Keep Swing's default look and feel when the system one is unavailable.
+        }
+    }
+
+    private static final class SurfacePanel extends JPanel {
+        private final int radius;
+
+        SurfacePanel(Color background, int radius) {
+            this.radius = radius;
+            setOpaque(false);
+            setBackground(background);
+        }
+
+        protected void paintComponent(Graphics graphics) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(getBackground());
+            g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
+            g2.dispose();
+            super.paintComponent(graphics);
+        }
+    }
+
+    private static final class RoundBorder extends AbstractBorder {
+        private final Color color;
+        private final int radius;
+
+        RoundBorder(Color color, int radius) {
+            this.color = color;
+            this.radius = radius;
+        }
+
+        public void paintBorder(Component component, Graphics graphics, int x, int y, int width, int height) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(color);
+            g2.drawRoundRect(x, y, width - 1, height - 1, radius, radius);
+            g2.dispose();
+        }
+
+        public Insets getBorderInsets(Component component) {
+            return new Insets(1, 1, 1, 1);
+        }
+
+        public Insets getBorderInsets(Component component, Insets insets) {
+            insets.left = 1;
+            insets.top = 1;
+            insets.right = 1;
+            insets.bottom = 1;
+            return insets;
         }
     }
 

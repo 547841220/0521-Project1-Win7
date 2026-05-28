@@ -158,3 +158,9 @@ windows7-compatible-installer
 ```
 
 注意：Actions 会把 Java 8 一起打进安装包。第一次交付前，仍建议在一台真实 Windows 7 电脑上安装打开一次，确认内置 Java 运行环境在该机器上可用。
+
+```
+cd /Users/jijie/Desktop/ai-project/ai-money/0521-Project1-WIN7
+javac -encoding UTF-8 -d /tmp/fieldledger-win7-preview src/com/aimoney/fieldledger/win7/*.java
+java -cp /tmp/fieldledger-win7-preview com.aimoney.fieldledger.win7.FieldLedgerWin7App
+```
