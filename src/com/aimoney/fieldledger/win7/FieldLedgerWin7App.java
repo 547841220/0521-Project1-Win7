@@ -24,11 +24,13 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.JTabbedPane;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.WindowConstants;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableColumn;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -533,10 +535,10 @@ public final class FieldLedgerWin7App {
             }
         });
         JPanel page = pagePanel();
-        JPanel tableArea = new JPanel(new GridLayout(2, 1, 0, 16));
-        tableArea.setOpaque(false);
-        tableArea.add(wrapTable("明细列表", table));
-        tableArea.add(wrapTable("工资统计", table(new String[] { "管理人", "团队头", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, managerTeamLaborSummaryRows())));
+        JTabbedPane tableArea = new JTabbedPane();
+        tableArea.setFont(new Font("Microsoft YaHei", Font.BOLD, 15));
+        tableArea.addTab("明细列表", wrapTable("明细列表", table));
+        tableArea.addTab("工资统计", wrapTable("工资统计", table(new String[] { "管理人", "团队头", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, managerTeamLaborSummaryRows())));
         page.add(form, BorderLayout.NORTH);
         page.add(tableArea, BorderLayout.CENTER);
         return page;
@@ -859,8 +861,11 @@ public final class FieldLedgerWin7App {
         panel.setLayout(new BorderLayout(0, 12));
         JLabel label = new JLabel(heading);
         label.setFont(new Font("Microsoft YaHei", Font.BOLD, 18));
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         panel.add(label, BorderLayout.NORTH);
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        panel.add(scroll, BorderLayout.CENTER);
         return panel;
     }
 
@@ -949,10 +954,35 @@ public final class FieldLedgerWin7App {
                 return false;
             }
         });
-        table.setRowHeight(30);
+        table.setFont(new Font("Microsoft YaHei", Font.PLAIN, 16));
+        table.setRowHeight(38);
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        table.setFillsViewportHeight(true);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.getTableHeader().setReorderingAllowed(false);
+        table.getTableHeader().setFont(new Font("Microsoft YaHei", Font.BOLD, 16));
+        table.getTableHeader().setPreferredSize(new Dimension(0, 42));
+        for (int i = 0; i < headers.length; i++) {
+            TableColumn column = table.getColumnModel().getColumn(i);
+            column.setPreferredWidth(tableColumnWidth(headers[i]));
+        }
         return table;
+    }
+
+    private int tableColumnWidth(String header) {
+        if ("日期".equals(header)) {
+            return 120;
+        }
+        if ("备注".equals(header)) {
+            return 180;
+        }
+        if (header.indexOf("金额") >= 0 || header.indexOf("单价") >= 0 || header.indexOf("合计") >= 0) {
+            return 120;
+        }
+        if (header.length() >= 4) {
+            return 110;
+        }
+        return 95;
     }
 
     private Object[][] managerRows() {
