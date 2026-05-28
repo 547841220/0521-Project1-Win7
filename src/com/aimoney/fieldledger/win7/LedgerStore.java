@@ -166,8 +166,9 @@ final class LedgerStore {
             summary.fixedExpenseCents += row.amountCents;
         }
         summary.directCostCents = summary.plotInputCents + summary.laborCents;
+        summary.otherCostCents = allocatedPublicAverageCents();
         summary.operatingExpenseCents = summary.directCostCents + summary.publicExpenseCents + summary.fixedExpenseCents;
-        summary.profitCents = summary.totalIncomeCents - summary.directCostCents;
+        summary.profitCents = summary.totalIncomeCents - summary.directCostCents - summary.otherCostCents;
         summary.manualTotalCents = manualTotalCents;
         summary.differenceCents = manualTotalCents == 0L ? 0L : manualTotalCents - summary.operatingExpenseCents;
         return summary;
@@ -196,7 +197,9 @@ final class LedgerStore {
                 }
             }
             profit.directCostCents = profit.plotInputCents + profit.laborCents;
-            profit.profitCents = profit.incomeCents - profit.directCostCents;
+            profit.otherCostCents = plotOtherCostCents(plot);
+            profit.totalCostCents = profit.directCostCents + profit.otherCostCents;
+            profit.profitCents = profit.incomeCents - profit.totalCostCents;
             rows.add(profit);
         }
         return rows;
@@ -208,11 +211,11 @@ final class LedgerStore {
             throw new IOException("无法创建导出目录: " + dir.getAbsolutePath());
         }
 
-        CsvWriter.write(new File(dir, "01-地块利润汇总.csv"), new String[] { "地块", "管理人", "出货收入", "地块投入", "工资用工", "直接成本", "利润" }, plotProfitRows());
+        CsvWriter.write(new File(dir, "01-地块利润汇总.csv"), new String[] { "地块", "管理人", "出货收入", "地块投入", "工资用工", "直接成本", "其他成本", "总成本", "利润" }, plotProfitRows());
         CsvWriter.write(new File(dir, "02-地块投入明细.csv"), new String[] { "日期", "地块", "管理人", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, plotInputRows());
         CsvWriter.write(new File(dir, "03-工资用工明细.csv"), new String[] { "日期", "团队头", "地块", "管理人", "项目", "男工数", "男工单价", "男工金额", "女工数", "女工单价", "女工金额", "车费", "合计", "备注" }, laborRows());
         CsvWriter.write(new File(dir, "04-出货记录.csv"), new String[] { "日期", "地块", "管理人", "车次", "毛重公斤", "毛重斤", "筐数", "单筐皮重", "总皮重", "扣除名目", "扣除重量", "自动净重斤", "净重斤", "单价", "总价", "备注" }, shipmentRows());
-        CsvWriter.write(new File(dir, "05-公账支出.csv"), new String[] { "账目类型", "日期", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, publicExpenseRows());
+        CsvWriter.write(new File(dir, "05-公账支出.csv"), new String[] { "账目类型", "日期", "类别", "名称", "数量", "单位", "单价", "金额", "平摊家数", "备注" }, publicExpenseRows());
         CsvWriter.write(new File(dir, "06-固定账.csv"), new String[] { "日期", "类别", "名称", "金额", "使用月数", "备注" }, fixedExpenseRows());
         CsvWriter.write(new File(dir, "07-总账核对.csv"), new String[] { "项目", "金额" }, checkRows());
         CsvWriter.write(new File(dir, "08-公账分类汇总.csv"), new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows());
@@ -281,6 +284,8 @@ final class LedgerStore {
                 Money.centsToYuan(row.plotInputCents),
                 Money.centsToYuan(row.laborCents),
                 Money.centsToYuan(row.directCostCents),
+                Money.centsToYuan(row.otherCostCents),
+                Money.centsToYuan(row.totalCostCents),
                 Money.centsToYuan(row.profitCents)
             });
         }
@@ -355,6 +360,82 @@ final class LedgerStore {
         return new ArrayList<ManagerTeamLaborSummary>(grouped.values());
     }
 
+    List<ManagerPublicAverageSummary> managerPublicAverageSummaries() {
+        List<ManagerPublicAverageSummary> rows = new ArrayList<ManagerPublicAverageSummary>();
+        for (Manager manager : managers) {
+            ManagerPublicAverageSummary summary = new ManagerPublicAverageSummary();
+            summary.managerId = manager.id;
+            summary.managerName = manager.name;
+            summary.plotCount = managerPlotCount(manager.id);
+            summary.publicAverageCents = managerPublicAverageCents(manager.id);
+            summary.perPlotOtherCostCents = summary.plotCount == 0 ? 0L : divideCents(summary.publicAverageCents, summary.plotCount);
+            rows.add(summary);
+        }
+        return rows;
+    }
+
+    ManagerExpenseSummary managerExpenseSummary(String managerId) {
+        ManagerExpenseSummary summary = new ManagerExpenseSummary();
+        summary.plotCount = managerPlotCount(managerId);
+        for (PlotInput row : plotInputs) {
+            if (isManagerPlot(row.plotId, managerId)) {
+                summary.plotInputCents += row.totalCents();
+            }
+        }
+        for (LaborRecord row : laborRecords) {
+            if (isManagerPlot(row.plotId, managerId)) {
+                summary.laborCents += row.totalCents();
+            }
+        }
+        summary.publicAverageCents = managerPublicAverageCents(managerId);
+        summary.totalCents = summary.plotInputCents + summary.laborCents + summary.publicAverageCents;
+        return summary;
+    }
+
+    List<ManagerExpenseDetail> managerExpenseDetails(String managerId) {
+        List<ManagerExpenseDetail> rows = new ArrayList<ManagerExpenseDetail>();
+        for (PlotInput row : plotInputs) {
+            if (isManagerPlot(row.plotId, managerId)) {
+                ManagerExpenseDetail detail = new ManagerExpenseDetail();
+                detail.date = row.date;
+                detail.source = "地块投入";
+                detail.target = plotCode(row.plotId);
+                detail.category = row.category;
+                detail.name = row.name;
+                detail.amountCents = row.totalCents();
+                detail.note = row.note;
+                rows.add(detail);
+            }
+        }
+        for (LaborRecord row : laborRecords) {
+            if (isManagerPlot(row.plotId, managerId)) {
+                ManagerExpenseDetail detail = new ManagerExpenseDetail();
+                detail.date = row.date;
+                detail.source = "工资用工";
+                detail.target = plotCode(row.plotId);
+                detail.category = laborTeamLeader(row);
+                detail.name = row.projectName;
+                detail.amountCents = row.totalCents();
+                detail.note = row.note;
+                rows.add(detail);
+            }
+        }
+        for (PublicExpense row : publicExpenses) {
+            if (PUBLIC_TYPE_AVERAGE.equals(publicType(row.accountType))) {
+                ManagerExpenseDetail detail = new ManagerExpenseDetail();
+                detail.date = row.date;
+                detail.source = "公账平均";
+                detail.target = shareCountText(row);
+                detail.category = row.category;
+                detail.name = row.name;
+                detail.amountCents = publicAverageShareCents(row);
+                detail.note = row.note;
+                rows.add(detail);
+            }
+        }
+        return rows;
+    }
+
     private List<String[]> teamLaborSummaryRows() {
         List<String[]> rows = new ArrayList<String[]>();
         for (TeamLaborSummary row : teamLaborSummaries()) {
@@ -389,7 +470,7 @@ final class LedgerStore {
     private List<String[]> publicExpenseRows() {
         List<String[]> rows = new ArrayList<String[]>();
         for (PublicExpense row : publicExpenses) {
-            rows.add(new String[] { publicType(row.accountType), row.date, row.category, row.name, Money.number(row.quantity), row.unit, Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note });
+            rows.add(new String[] { publicType(row.accountType), row.date, row.category, row.name, Money.number(row.quantity), row.unit, Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), shareCountText(row), row.note });
         }
         return rows;
     }
@@ -429,6 +510,7 @@ final class LedgerStore {
         rows.add(new String[] { "地块投入", Money.centsToYuan(summary.plotInputCents) });
         rows.add(new String[] { "工资用工", Money.centsToYuan(summary.laborCents) });
         rows.add(new String[] { "小组账合计/直接成本", Money.centsToYuan(summary.directCostCents) });
+        rows.add(new String[] { "其他成本/公账平均分摊", Money.centsToYuan(summary.otherCostCents) });
         rows.add(new String[] { "普通公账", Money.centsToYuan(summary.publicNormalExpenseCents) });
         rows.add(new String[] { "公账平均", Money.centsToYuan(summary.publicAverageExpenseCents) });
         rows.add(new String[] { "公账支出", Money.centsToYuan(summary.publicExpenseCents) });
@@ -465,6 +547,74 @@ final class LedgerStore {
             return PUBLIC_TYPE_AVERAGE;
         }
         return PUBLIC_TYPE_NORMAL;
+    }
+
+    int publicExpenseShareCount(PublicExpense row) {
+        if (!PUBLIC_TYPE_AVERAGE.equals(publicType(row.accountType))) {
+            return 0;
+        }
+        if (row.shareCount > 0) {
+            return row.shareCount;
+        }
+        return managers.isEmpty() ? 1 : managers.size();
+    }
+
+    long publicAverageShareCents(PublicExpense row) {
+        int count = publicExpenseShareCount(row);
+        return count <= 0 ? 0L : divideCents(row.totalCents(), count);
+    }
+
+    private String shareCountText(PublicExpense row) {
+        int count = publicExpenseShareCount(row);
+        return count <= 0 ? "" : String.valueOf(count);
+    }
+
+    private long managerPublicAverageCents(String managerId) {
+        long total = 0L;
+        if (findManager(managerId) == null) {
+            return total;
+        }
+        for (PublicExpense row : publicExpenses) {
+            if (PUBLIC_TYPE_AVERAGE.equals(publicType(row.accountType))) {
+                total += publicAverageShareCents(row);
+            }
+        }
+        return total;
+    }
+
+    private long plotOtherCostCents(Plot plot) {
+        int plotCount = managerPlotCount(plot.managerId);
+        if (plotCount == 0) {
+            return 0L;
+        }
+        return divideCents(managerPublicAverageCents(plot.managerId), plotCount);
+    }
+
+    private long allocatedPublicAverageCents() {
+        long total = 0L;
+        for (ManagerPublicAverageSummary row : managerPublicAverageSummaries()) {
+            total += row.publicAverageCents;
+        }
+        return total;
+    }
+
+    private int managerPlotCount(String managerId) {
+        int count = 0;
+        for (Plot plot : plots) {
+            if (plot.managerId.equals(managerId)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private boolean isManagerPlot(String plotId, String managerId) {
+        Plot plot = findPlot(plotId);
+        return plot != null && plot.managerId.equals(managerId);
+    }
+
+    private static long divideCents(long cents, int count) {
+        return Math.round(cents / (double) count);
     }
 
     private static boolean isKnownPublicCategory(String category) {
@@ -542,6 +692,7 @@ final class LedgerStore {
         long publicExpenseCents;
         long publicNormalExpenseCents;
         long publicAverageExpenseCents;
+        long otherCostCents;
         long fixedExpenseCents;
         long operatingExpenseCents;
         long profitCents;
@@ -557,6 +708,8 @@ final class LedgerStore {
         long plotInputCents;
         long laborCents;
         long directCostCents;
+        long otherCostCents;
+        long totalCostCents;
         long profitCents;
     }
 
@@ -577,5 +730,31 @@ final class LedgerStore {
         long femaleAmountCents;
         long vehicleAmountCents;
         long totalCents;
+    }
+
+    static final class ManagerPublicAverageSummary {
+        String managerId;
+        String managerName;
+        int plotCount;
+        long publicAverageCents;
+        long perPlotOtherCostCents;
+    }
+
+    static final class ManagerExpenseSummary {
+        int plotCount;
+        long plotInputCents;
+        long laborCents;
+        long publicAverageCents;
+        long totalCents;
+    }
+
+    static final class ManagerExpenseDetail {
+        String date;
+        String source;
+        String target;
+        String category;
+        String name;
+        long amountCents;
+        String note;
     }
 }

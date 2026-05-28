@@ -10,6 +10,9 @@ import com.aimoney.fieldledger.win7.Models.Plot;
 import com.aimoney.fieldledger.win7.Models.PlotInput;
 import com.aimoney.fieldledger.win7.Models.PublicExpense;
 import com.aimoney.fieldledger.win7.Models.Shipment;
+import com.aimoney.fieldledger.win7.LedgerStore.ManagerExpenseDetail;
+import com.aimoney.fieldledger.win7.LedgerStore.ManagerExpenseSummary;
+import com.aimoney.fieldledger.win7.LedgerStore.ManagerPublicAverageSummary;
 import com.aimoney.fieldledger.win7.LedgerStore.ManagerTeamLaborSummary;
 import com.aimoney.fieldledger.win7.LedgerStore.TeamLaborSummary;
 
@@ -17,6 +20,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -40,6 +44,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -237,7 +243,7 @@ public final class FieldLedgerWin7App {
         grid.add(metric("固定账", Money.centsToYuan(summary.fixedExpenseCents)));
         page.add(grid, BorderLayout.NORTH);
 
-        JTable table = table(new String[] { "地块", "管理人", "出货收入", "直接成本", "利润" }, profitTableRows(false));
+        JTable table = table(new String[] { "地块", "管理人", "出货收入", "直接成本", "其他成本", "利润" }, profitTableRows(false));
         page.add(wrapTable("地块利润速览", table), BorderLayout.CENTER);
         return page;
     }
@@ -274,6 +280,15 @@ public final class FieldLedgerWin7App {
                 store.managers.remove(store.findManager(selectedId[0]));
             }
         }, selectedId);
+        JButton detail = secondaryButton("查看明细");
+        detail.addActionListener(e -> {
+            if (selectedId[0].isEmpty()) {
+                JOptionPane.showMessageDialog(frame, "请先选择一个管理人");
+                return;
+            }
+            showManagerDetail(selectedId[0]);
+        });
+        form.add(detail, gbcWide(5, 1));
 
         table.getSelectionModel().addListSelectionListener(e -> {
             int row = table.getSelectedRow();
@@ -284,6 +299,14 @@ public final class FieldLedgerWin7App {
                 alias.setText(manager.alias);
                 phone.setText(manager.phone);
                 note.setText(manager.note);
+            }
+        });
+        table.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2 && table.getSelectedRow() >= 0) {
+                    Manager manager = store.managers.get(table.getSelectedRow());
+                    showManagerDetail(manager.id);
+                }
             }
         });
         return crudPage(form, table);
@@ -623,8 +646,9 @@ public final class FieldLedgerWin7App {
         final JTextField quantity = field("1");
         final JTextField unit = field();
         final JTextField price = field("0");
+        final JTextField shareCount = field(String.valueOf(Math.max(1, store.managers.size())));
         final JTextField note = field();
-        final JTable table = table(new String[] { "账目类型", "日期", "类别", "名称", "数量", "单位", "单价", "金额", "备注" }, publicExpenseRows());
+        final JTable table = table(new String[] { "账目类型", "日期", "类别", "名称", "数量", "单位", "单价", "金额", "平摊家数", "备注" }, publicExpenseRows());
         final String[] selectedId = new String[] { "" };
 
         JPanel form = formPanel();
@@ -635,8 +659,9 @@ public final class FieldLedgerWin7App {
         addField(form, 4, "数量", quantity);
         addField(form, 5, "单位", unit);
         addField(form, 6, "单价", price);
-        addField(form, 7, "备注", note);
-        addActions(form, 8, new Runnable() {
+        addField(form, 7, "平摊家数", shareCount);
+        addField(form, 8, "备注", note);
+        addActions(form, 9, new Runnable() {
             public void run() {
                 PublicExpense row = selectedId[0].isEmpty() ? new PublicExpense(selectedString(accountType), date.getText(), selectedString(category), name.getText(), Money.parseDouble(quantity.getText()), unit.getText(), Money.yuanToCents(price.getText()), note.getText()) : findPublicExpense(selectedId[0]);
                 row.accountType = selectedString(accountType);
@@ -646,6 +671,7 @@ public final class FieldLedgerWin7App {
                 row.quantity = Money.parseDouble(quantity.getText());
                 row.unit = unit.getText();
                 row.unitPriceCents = Money.yuanToCents(price.getText());
+                row.shareCount = Money.parseInt(shareCount.getText());
                 row.note = note.getText();
                 if (selectedId[0].isEmpty()) {
                     store.publicExpenses.add(row);
@@ -668,10 +694,19 @@ public final class FieldLedgerWin7App {
                 quantity.setText(String.valueOf(row.quantity));
                 unit.setText(row.unit);
                 price.setText(Money.centsInput(row.unitPriceCents));
+                shareCount.setText(String.valueOf(store.publicExpenseShareCount(row)));
                 note.setText(row.note);
             }
         });
-        return crudPage(form, table);
+        JPanel page = pagePanel();
+        JTabbedPane tableArea = new JTabbedPane();
+        tableArea.setFont(new Font("Microsoft YaHei", Font.BOLD, 15));
+        tableArea.addTab("明细列表", wrapTable("明细列表", table));
+        tableArea.addTab("分类汇总", wrapTable("分类汇总", table(new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows())));
+        tableArea.addTab("管理人平摊", wrapTable("管理人平摊", table(new String[] { "管理人", "地块数", "公账平均分摊", "每地块其他成本" }, managerPublicAverageRows())));
+        page.add(form, BorderLayout.NORTH);
+        page.add(tableArea, BorderLayout.CENTER);
+        return page;
     }
 
     private JPanel fixedExpensesPage() {
@@ -731,18 +766,20 @@ public final class FieldLedgerWin7App {
         final JTextField note = field(store.expenseCheckNote);
 
         JPanel page = pagePanel();
-        JPanel tableArea = new JPanel(new GridLayout(3, 1, 0, 16));
-        tableArea.setOpaque(false);
-        tableArea.add(wrapTable("地块利润核对", table(new String[] { "地块", "管理人", "出货收入", "地块投入", "工资用工", "直接成本", "利润" }, profitTableRows(true))));
-        tableArea.add(wrapTable("团队工资汇总", table(new String[] { "团队头", "男工金额", "女工金额", "车费", "合计" }, teamLaborSummaryRows())));
-        tableArea.add(wrapTable("公账分类汇总", table(new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows())));
+        JTabbedPane tableArea = new JTabbedPane();
+        tableArea.setFont(new Font("Microsoft YaHei", Font.BOLD, 15));
+        tableArea.addTab("地块利润核对", wrapTable("地块利润核对", table(new String[] { "地块", "管理人", "出货收入", "地块投入", "工资用工", "直接成本", "其他成本", "总成本", "利润" }, profitTableRows(true))));
+        tableArea.addTab("团队工资汇总", wrapTable("团队工资汇总", table(new String[] { "团队头", "男工金额", "女工金额", "车费", "合计" }, teamLaborSummaryRows())));
+        tableArea.addTab("公账分类汇总", wrapTable("公账分类汇总", table(new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows())));
+        tableArea.addTab("管理人平摊", wrapTable("管理人平摊", table(new String[] { "管理人", "地块数", "公账平均分摊", "每地块其他成本" }, managerPublicAverageRows())));
         page.add(tableArea, BorderLayout.CENTER);
 
         JPanel bottom = panelBox();
         bottom.setLayout(new BorderLayout(12, 12));
-        JPanel cards = new JPanel(new GridLayout(1, 5, 12, 12));
+        JPanel cards = new JPanel(new GridLayout(1, 6, 12, 12));
         cards.setOpaque(false);
         cards.add(metric("小组账合计/直接成本", Money.centsToYuan(summary.directCostCents)));
+        cards.add(metric("其他成本", Money.centsToYuan(summary.otherCostCents)));
         cards.add(metric("普通公账", Money.centsToYuan(summary.publicNormalExpenseCents)));
         cards.add(metric("公账平均", Money.centsToYuan(summary.publicAverageExpenseCents)));
         cards.add(metric("固定账", Money.centsToYuan(summary.fixedExpenseCents)));
@@ -976,7 +1013,7 @@ public final class FieldLedgerWin7App {
         if ("备注".equals(header)) {
             return 180;
         }
-        if (header.indexOf("金额") >= 0 || header.indexOf("单价") >= 0 || header.indexOf("合计") >= 0) {
+        if (header.indexOf("金额") >= 0 || header.indexOf("单价") >= 0 || header.indexOf("合计") >= 0 || header.indexOf("成本") >= 0) {
             return 120;
         }
         if (header.length() >= 4) {
@@ -1060,10 +1097,20 @@ public final class FieldLedgerWin7App {
     }
 
     private Object[][] publicExpenseRows() {
-        Object[][] rows = new Object[store.publicExpenses.size()][9];
+        Object[][] rows = new Object[store.publicExpenses.size()][10];
         for (int i = 0; i < store.publicExpenses.size(); i++) {
             PublicExpense row = store.publicExpenses.get(i);
-            rows[i] = new Object[] { LedgerStore.publicType(row.accountType), row.date, row.category, row.name, Money.number(row.quantity), row.unit, Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), row.note };
+            rows[i] = new Object[] { LedgerStore.publicType(row.accountType), row.date, row.category, row.name, Money.number(row.quantity), row.unit, Money.centsToYuan(row.unitPriceCents), Money.centsToYuan(row.totalCents()), store.publicExpenseShareCount(row) == 0 ? "" : String.valueOf(store.publicExpenseShareCount(row)), row.note };
+        }
+        return rows;
+    }
+
+    private Object[][] managerPublicAverageRows() {
+        List<ManagerPublicAverageSummary> summaries = store.managerPublicAverageSummaries();
+        Object[][] rows = new Object[summaries.size()][4];
+        for (int i = 0; i < summaries.size(); i++) {
+            ManagerPublicAverageSummary row = summaries.get(i);
+            rows[i] = new Object[] { row.managerName, row.plotCount, Money.centsToYuan(row.publicAverageCents), Money.centsToYuan(row.perPlotOtherCostCents) };
         }
         return rows;
     }
@@ -1089,14 +1136,59 @@ public final class FieldLedgerWin7App {
 
     private Object[][] profitTableRows(boolean full) {
         List<PlotProfit> profits = store.plotProfits();
-        Object[][] rows = new Object[profits.size()][full ? 7 : 5];
+        Object[][] rows = new Object[profits.size()][full ? 9 : 6];
         for (int i = 0; i < profits.size(); i++) {
             PlotProfit row = profits.get(i);
             if (full) {
-                rows[i] = new Object[] { row.plotCode, row.managerName, Money.centsToYuan(row.incomeCents), Money.centsToYuan(row.plotInputCents), Money.centsToYuan(row.laborCents), Money.centsToYuan(row.directCostCents), Money.centsToYuan(row.profitCents) };
+                rows[i] = new Object[] { row.plotCode, row.managerName, Money.centsToYuan(row.incomeCents), Money.centsToYuan(row.plotInputCents), Money.centsToYuan(row.laborCents), Money.centsToYuan(row.directCostCents), Money.centsToYuan(row.otherCostCents), Money.centsToYuan(row.totalCostCents), Money.centsToYuan(row.profitCents) };
             } else {
-                rows[i] = new Object[] { row.plotCode, row.managerName, Money.centsToYuan(row.incomeCents), Money.centsToYuan(row.directCostCents), Money.centsToYuan(row.profitCents) };
+                rows[i] = new Object[] { row.plotCode, row.managerName, Money.centsToYuan(row.incomeCents), Money.centsToYuan(row.directCostCents), Money.centsToYuan(row.otherCostCents), Money.centsToYuan(row.profitCents) };
             }
+        }
+        return rows;
+    }
+
+    private void showManagerDetail(String managerId) {
+        Manager manager = store.findManager(managerId);
+        if (manager == null) {
+            JOptionPane.showMessageDialog(frame, "未找到管理人");
+            return;
+        }
+
+        ManagerExpenseSummary summary = store.managerExpenseSummary(managerId);
+        JDialog dialog = new JDialog(frame, manager.name + " 明细", true);
+        dialog.setLayout(new BorderLayout(12, 12));
+
+        JPanel cards = new JPanel(new GridLayout(1, 5, 12, 12));
+        cards.setBorder(BorderFactory.createEmptyBorder(12, 12, 0, 12));
+        cards.add(metric("地块数", String.valueOf(summary.plotCount)));
+        cards.add(metric("地块投入", Money.centsToYuan(summary.plotInputCents)));
+        cards.add(metric("工资用工", Money.centsToYuan(summary.laborCents)));
+        cards.add(metric("公账平均分摊", Money.centsToYuan(summary.publicAverageCents)));
+        cards.add(metric("合计", Money.centsToYuan(summary.totalCents)));
+
+        JTable detailTable = table(new String[] { "日期", "来源", "地块/平摊", "类别/团队", "名称/项目", "金额", "备注" }, managerExpenseDetailRows(managerId));
+        dialog.add(cards, BorderLayout.NORTH);
+        dialog.add(wrapTable("费用去向明细", detailTable), BorderLayout.CENTER);
+
+        JButton close = secondaryButton("关闭");
+        close.addActionListener(e -> dialog.dispose());
+        JPanel footer = new JPanel(new BorderLayout());
+        footer.setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
+        footer.add(close, BorderLayout.EAST);
+        dialog.add(footer, BorderLayout.SOUTH);
+
+        dialog.setSize(new Dimension(980, 620));
+        dialog.setLocationRelativeTo(frame);
+        dialog.setVisible(true);
+    }
+
+    private Object[][] managerExpenseDetailRows(String managerId) {
+        List<ManagerExpenseDetail> details = store.managerExpenseDetails(managerId);
+        Object[][] rows = new Object[details.size()][7];
+        for (int i = 0; i < details.size(); i++) {
+            ManagerExpenseDetail row = details.get(i);
+            rows[i] = new Object[] { row.date, row.source, row.target, row.category, row.name, Money.centsToYuan(row.amountCents), row.note };
         }
         return rows;
     }

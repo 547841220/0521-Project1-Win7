@@ -312,6 +312,7 @@ final class Models {
         double quantity;
         String unit;
         long unitPriceCents;
+        int shareCount;
         String note;
 
         PublicExpense(String accountType, String date, String category, String name, double quantity, String unit, long unitPriceCents, String note) {
@@ -323,12 +324,13 @@ final class Models {
             this.quantity = quantity;
             this.unit = unit;
             this.unitPriceCents = unitPriceCents;
+            this.shareCount = 0;
             this.note = note;
         }
 
         PublicExpense(String[] values) {
             this.id = val(values, 0);
-            if (values.length >= 9) {
+            if (values.length >= 10) {
                 this.accountType = val(values, 1);
                 this.date = val(values, 2);
                 this.category = val(values, 3);
@@ -336,6 +338,17 @@ final class Models {
                 this.quantity = doubleVal(values, 5);
                 this.unit = val(values, 6);
                 this.unitPriceCents = longVal(values, 7);
+                this.shareCount = intVal(values, 8);
+                this.note = val(values, 9);
+            } else if (values.length >= 9) {
+                this.accountType = val(values, 1);
+                this.date = val(values, 2);
+                this.category = val(values, 3);
+                this.name = val(values, 4);
+                this.quantity = doubleVal(values, 5);
+                this.unit = val(values, 6);
+                this.unitPriceCents = longVal(values, 7);
+                this.shareCount = 0;
                 this.note = val(values, 8);
             } else {
                 this.accountType = "普通公账";
@@ -345,6 +358,7 @@ final class Models {
                 this.quantity = doubleVal(values, 4);
                 this.unit = val(values, 5);
                 this.unitPriceCents = longVal(values, 6);
+                this.shareCount = 0;
                 this.note = val(values, 7);
             }
         }
@@ -354,7 +368,7 @@ final class Models {
         }
 
         String[] values() {
-            return new String[] { id, accountType, date, category, name, String.valueOf(quantity), unit, String.valueOf(unitPriceCents), note };
+            return new String[] { id, accountType, date, category, name, String.valueOf(quantity), unit, String.valueOf(unitPriceCents), String.valueOf(shareCount), note };
         }
     }
 
