@@ -219,8 +219,9 @@ final class LedgerStore {
         CsvWriter.write(new File(dir, "06-固定账.csv"), new String[] { "日期", "类别", "名称", "金额", "使用月数", "备注" }, fixedExpenseRows());
         CsvWriter.write(new File(dir, "07-总账核对.csv"), new String[] { "项目", "金额" }, checkRows());
         CsvWriter.write(new File(dir, "08-公账分类汇总.csv"), new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows());
-        CsvWriter.write(new File(dir, "09-团队工资汇总.csv"), new String[] { "团队头", "男工金额", "女工金额", "车费", "合计" }, teamLaborSummaryRows());
-        CsvWriter.write(new File(dir, "10-管理人工资统计.csv"), new String[] { "管理人", "团队头", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, managerTeamLaborSummaryRows());
+        CsvWriter.write(new File(dir, "09-带队工资月结.csv"), new String[] { "月份", "团队头", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, teamLaborSummaryRows());
+        CsvWriter.write(new File(dir, "10-管理人工资月结.csv"), new String[] { "月份", "管理人", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, managerTeamLaborSummaryRows());
+        CsvWriter.write(new File(dir, "11-带队工资明细.csv"), teamLaborMatrixHeaders(), teamLaborMatrixRows());
         return dir;
     }
 
@@ -245,6 +246,11 @@ final class LedgerStore {
         }
         String managerName = plotManagerName(row.plotId);
         return managerName.isEmpty() ? "未填写团队头" : managerName;
+    }
+
+    String laborMonth(String date) {
+        String text = date == null ? "" : date.trim();
+        return text.length() >= 7 ? text.substring(0, 7) : "未填写月份";
     }
 
     Manager findManager(String id) {
@@ -319,34 +325,13 @@ final class LedgerStore {
     List<TeamLaborSummary> teamLaborSummaries() {
         Map<String, TeamLaborSummary> grouped = new LinkedHashMap<String, TeamLaborSummary>();
         for (LaborRecord row : laborRecords) {
+            String month = laborMonth(row.date);
             String leader = laborTeamLeader(row);
-            TeamLaborSummary summary = grouped.get(leader);
+            String key = month + "\t" + leader;
+            TeamLaborSummary summary = grouped.get(key);
             if (summary == null) {
                 summary = new TeamLaborSummary();
-                summary.teamLeader = leader;
-                grouped.put(leader, summary);
-            }
-            summary.maleAmountCents += row.maleAmountCents();
-            summary.femaleAmountCents += row.femaleAmountCents();
-            summary.vehicleAmountCents += row.vehicleAmountCents;
-            summary.totalCents += row.totalCents();
-        }
-        return new ArrayList<TeamLaborSummary>(grouped.values());
-    }
-
-    List<ManagerTeamLaborSummary> managerTeamLaborSummaries() {
-        Map<String, ManagerTeamLaborSummary> grouped = new LinkedHashMap<String, ManagerTeamLaborSummary>();
-        for (LaborRecord row : laborRecords) {
-            String manager = plotManagerName(row.plotId);
-            if (manager.isEmpty()) {
-                manager = "未填写管理人";
-            }
-            String leader = laborTeamLeader(row);
-            String key = manager + "\t" + leader;
-            ManagerTeamLaborSummary summary = grouped.get(key);
-            if (summary == null) {
-                summary = new ManagerTeamLaborSummary();
-                summary.managerName = manager;
+                summary.month = month;
                 summary.teamLeader = leader;
                 grouped.put(key, summary);
             }
@@ -357,7 +342,65 @@ final class LedgerStore {
             summary.vehicleAmountCents += row.vehicleAmountCents;
             summary.totalCents += row.totalCents();
         }
+        return new ArrayList<TeamLaborSummary>(grouped.values());
+    }
+
+    List<ManagerTeamLaborSummary> managerTeamLaborSummaries() {
+        Map<String, ManagerTeamLaborSummary> grouped = new LinkedHashMap<String, ManagerTeamLaborSummary>();
+        for (LaborRecord row : laborRecords) {
+            String month = laborMonth(row.date);
+            String manager = plotManagerName(row.plotId);
+            if (manager.isEmpty()) {
+                manager = "未填写管理人";
+            }
+            String key = month + "\t" + manager;
+            ManagerTeamLaborSummary summary = grouped.get(key);
+            if (summary == null) {
+                summary = new ManagerTeamLaborSummary();
+                summary.month = month;
+                summary.managerName = manager;
+                grouped.put(key, summary);
+            }
+            summary.maleCount += row.maleCount;
+            summary.maleAmountCents += row.maleAmountCents();
+            summary.femaleCount += row.femaleCount;
+            summary.femaleAmountCents += row.femaleAmountCents();
+            summary.vehicleAmountCents += row.vehicleAmountCents;
+            summary.totalCents += row.totalCents();
+        }
         return new ArrayList<ManagerTeamLaborSummary>(grouped.values());
+    }
+
+    List<String> laborMonths() {
+        Map<String, String> grouped = new LinkedHashMap<String, String>();
+        for (LaborRecord row : laborRecords) {
+            String month = laborMonth(row.date);
+            grouped.put(month, month);
+        }
+        return new ArrayList<String>(grouped.values());
+    }
+
+    List<String> teamLaborLeaders() {
+        Map<String, String> grouped = new LinkedHashMap<String, String>();
+        for (LaborRecord row : laborRecords) {
+            String leader = laborTeamLeader(row);
+            grouped.put(leader, leader);
+        }
+        return new ArrayList<String>(grouped.values());
+    }
+
+    List<LaborRecord> teamLaborRecords(String teamLeader) {
+        return teamLaborRecords("", teamLeader);
+    }
+
+    List<LaborRecord> teamLaborRecords(String month, String teamLeader) {
+        List<LaborRecord> rows = new ArrayList<LaborRecord>();
+        for (LaborRecord row : laborRecords) {
+            if ((month == null || month.isEmpty() || laborMonth(row.date).equals(month)) && laborTeamLeader(row).equals(teamLeader)) {
+                rows.add(row);
+            }
+        }
+        return rows;
     }
 
     List<ManagerPublicAverageSummary> managerPublicAverageSummaries() {
@@ -440,8 +483,11 @@ final class LedgerStore {
         List<String[]> rows = new ArrayList<String[]>();
         for (TeamLaborSummary row : teamLaborSummaries()) {
             rows.add(new String[] {
+                row.month,
                 row.teamLeader,
+                Money.number(row.maleCount),
                 Money.centsToYuan(row.maleAmountCents),
+                Money.number(row.femaleCount),
                 Money.centsToYuan(row.femaleAmountCents),
                 Money.centsToYuan(row.vehicleAmountCents),
                 Money.centsToYuan(row.totalCents)
@@ -454,8 +500,8 @@ final class LedgerStore {
         List<String[]> rows = new ArrayList<String[]>();
         for (ManagerTeamLaborSummary row : managerTeamLaborSummaries()) {
             rows.add(new String[] {
+                row.month,
                 row.managerName,
-                row.teamLeader,
                 Money.number(row.maleCount),
                 Money.centsToYuan(row.maleAmountCents),
                 Money.number(row.femaleCount),
@@ -465,6 +511,61 @@ final class LedgerStore {
             });
         }
         return rows;
+    }
+
+    private String[] teamLaborMatrixHeaders() {
+        List<String> leaders = teamLaborLeaders();
+        String[] fields = { "日期", "项目", "男工", "单价", "金额", "女工", "单价", "金额", "车工", "总计" };
+        String[] headers = new String[1 + leaders.size() * fields.length];
+        int index = 0;
+        headers[index++] = "月份";
+        for (String leader : leaders) {
+            for (String field : fields) {
+                headers[index++] = leader + "-" + field;
+            }
+        }
+        return headers;
+    }
+
+    private List<String[]> teamLaborMatrixRows() {
+        List<String> months = laborMonths();
+        List<String> leaders = teamLaborLeaders();
+        List<String[]> matrix = new ArrayList<String[]>();
+        for (String month : months) {
+            List<List<LaborRecord>> grouped = new ArrayList<List<LaborRecord>>();
+            int maxRows = 0;
+            for (String leader : leaders) {
+                List<LaborRecord> rows = teamLaborRecords(month, leader);
+                grouped.add(rows);
+                maxRows = Math.max(maxRows, rows.size());
+            }
+            for (int rowIndex = 0; rowIndex < maxRows; rowIndex++) {
+                String[] row = new String[1 + leaders.size() * 10];
+                int column = 0;
+                row[column++] = month;
+                for (List<LaborRecord> records : grouped) {
+                    if (rowIndex < records.size()) {
+                        LaborRecord record = records.get(rowIndex);
+                        row[column++] = record.date;
+                        row[column++] = record.projectName;
+                        row[column++] = Money.number(record.maleCount);
+                        row[column++] = Money.centsToYuan(record.malePriceCents);
+                        row[column++] = Money.centsToYuan(record.maleAmountCents());
+                        row[column++] = Money.number(record.femaleCount);
+                        row[column++] = Money.centsToYuan(record.femalePriceCents);
+                        row[column++] = Money.centsToYuan(record.femaleAmountCents());
+                        row[column++] = Money.centsToYuan(record.vehicleAmountCents);
+                        row[column++] = Money.centsToYuan(record.totalCents());
+                    } else {
+                        for (int i = 0; i < 10; i++) {
+                            row[column++] = "";
+                        }
+                    }
+                }
+                matrix.add(row);
+            }
+        }
+        return matrix;
     }
 
     private List<String[]> publicExpenseRows() {
@@ -714,16 +815,19 @@ final class LedgerStore {
     }
 
     static final class TeamLaborSummary {
+        String month;
         String teamLeader;
+        double maleCount;
         long maleAmountCents;
+        double femaleCount;
         long femaleAmountCents;
         long vehicleAmountCents;
         long totalCents;
     }
 
     static final class ManagerTeamLaborSummary {
+        String month;
         String managerName;
-        String teamLeader;
         double maleCount;
         long maleAmountCents;
         double femaleCount;

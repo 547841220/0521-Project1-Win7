@@ -593,12 +593,23 @@ public final class FieldLedgerWin7App {
                 note.setText(row.note);
             }
         });
+        JTable teamSummaryTable = table(new String[] { "月份", "团队头", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, teamLaborSummaryRows());
+        teamSummaryTable.addMouseListener(new MouseAdapter() {
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2 && teamSummaryTable.getSelectedRow() >= 0) {
+                    showTeamLaborDetail(String.valueOf(teamSummaryTable.getValueAt(teamSummaryTable.getSelectedRow(), 0)), String.valueOf(teamSummaryTable.getValueAt(teamSummaryTable.getSelectedRow(), 1)));
+                }
+            }
+        });
+
         JPanel page = pagePanel();
         JTabbedPane tableArea = new JTabbedPane();
         tableArea.setFont(new Font("Microsoft YaHei", Font.BOLD, 15));
         tableArea.addTab("明细列表", wrapTable("明细列表", table));
-        tableArea.addTab("工资统计", wrapTable("工资统计", table(new String[] { "管理人", "团队头", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, managerTeamLaborSummaryRows())));
-        page.add(form, BorderLayout.NORTH);
+        tableArea.addTab("管理核算", wrapTable("管理核算", table(new String[] { "月份", "管理人", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, managerTeamLaborSummaryRows())));
+        tableArea.addTab("带队核算", wrapTable("带队核算（双击查看明细）", teamSummaryTable));
+        tableArea.addTab("带队月结明细", wrapTable("带队月结明细", table(teamLaborMatrixHeaders(), teamLaborMatrixRows())));
+        page.add(wrapForm(form), BorderLayout.NORTH);
         page.add(tableArea, BorderLayout.CENTER);
         return page;
     }
@@ -740,7 +751,7 @@ public final class FieldLedgerWin7App {
         tableArea.addTab("明细列表", wrapTable("明细列表", table));
         tableArea.addTab("分类汇总", wrapTable("分类汇总", table(new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows())));
         tableArea.addTab("管理人平摊", wrapTable("管理人平摊", table(new String[] { "管理人", "地块数", "公账平均分摊", "每地块其他成本" }, managerPublicAverageRows())));
-        page.add(form, BorderLayout.NORTH);
+        page.add(wrapForm(form), BorderLayout.NORTH);
         page.add(tableArea, BorderLayout.CENTER);
         return page;
     }
@@ -805,7 +816,7 @@ public final class FieldLedgerWin7App {
         JTabbedPane tableArea = new JTabbedPane();
         tableArea.setFont(new Font("Microsoft YaHei", Font.BOLD, 15));
         tableArea.addTab("地块利润核对", wrapTable("地块利润核对", table(new String[] { "地块", "管理人", "出货收入", "地块投入", "工资用工", "直接成本", "其他成本", "总成本", "利润" }, profitTableRows(true))));
-        tableArea.addTab("团队工资汇总", wrapTable("团队工资汇总", table(new String[] { "团队头", "男工金额", "女工金额", "车费", "合计" }, teamLaborSummaryRows())));
+        tableArea.addTab("带队工资月结", wrapTable("带队工资月结", table(new String[] { "月份", "团队头", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计" }, teamLaborSummaryRows())));
         tableArea.addTab("公账分类汇总", wrapTable("公账分类汇总", table(new String[] { "账目类型", "类别", "金额" }, publicExpenseSummaryRows())));
         tableArea.addTab("管理人平摊", wrapTable("管理人平摊", table(new String[] { "管理人", "地块数", "公账平均分摊", "每地块其他成本" }, managerPublicAverageRows())));
         page.add(tableArea, BorderLayout.CENTER);
@@ -838,7 +849,7 @@ public final class FieldLedgerWin7App {
         check.add(save, gbc(2, 1));
         bottom.add(check, BorderLayout.CENTER);
         bottom.add(new JLabel("当前差额: " + (summary.manualTotalCents == 0L ? "未填写手工总开销" : Money.centsToYuan(summary.differenceCents))), BorderLayout.SOUTH);
-        page.add(bottom, BorderLayout.SOUTH);
+        page.add(wrapLimitedPanel(bottom, 170), BorderLayout.SOUTH);
         return page;
     }
 
@@ -846,7 +857,7 @@ public final class FieldLedgerWin7App {
         JPanel page = pagePanel();
         JPanel box = panelBox();
         box.setLayout(new BorderLayout(16, 16));
-        JLabel text = new JLabel("<html><h2>导出 Excel 可打开的 CSV 文件</h2><p>会生成地块利润、地块投入、工资用工、出货记录、公账、固定账、总账核对、公账分类汇总、团队工资汇总、管理人工资统计共 10 个文件。</p><p>数据目录: " + store.dataDir.getAbsolutePath() + "</p></html>");
+        JLabel text = new JLabel("<html><h2>导出 Excel 可打开的 CSV 文件</h2><p>会生成地块利润、地块投入、工资用工、出货记录、公账、固定账、总账核对、公账分类汇总、带队工资月结、管理人工资月结、带队工资明细共 11 个文件。</p><p>数据目录: " + store.dataDir.getAbsolutePath() + "</p></html>");
         JButton export = actionButton("导出到本地数据目录");
         export.addActionListener(e -> {
             try {
@@ -864,7 +875,7 @@ public final class FieldLedgerWin7App {
 
     private JPanel crudPage(JPanel form, JTable table) {
         JPanel page = pagePanel();
-        page.add(form, BorderLayout.NORTH);
+        page.add(wrapForm(form), BorderLayout.NORTH);
         page.add(wrapTable("明细列表", table), BorderLayout.CENTER);
         return page;
     }
@@ -927,9 +938,25 @@ public final class FieldLedgerWin7App {
     }
 
     private JPanel formPanel() {
-        JPanel form = panelBox();
+        JPanel form = panelBox(12);
         form.setLayout(new GridBagLayout());
         return form;
+    }
+
+    private JScrollPane wrapForm(JPanel form) {
+        return wrapLimitedPanel(form, 210);
+    }
+
+    private JScrollPane wrapLimitedPanel(JPanel panel, int maxHeight) {
+        JScrollPane scroll = new JScrollPane(panel);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        int height = Math.min(panel.getPreferredSize().height + 4, maxHeight);
+        scroll.setPreferredSize(new Dimension(0, height));
+        return scroll;
     }
 
     private JPanel wrapTable(String heading, JTable table) {
@@ -969,11 +996,11 @@ public final class FieldLedgerWin7App {
 
     private JTextField field(String value) {
         JTextField field = new JTextField(value);
-        field.setPreferredSize(new Dimension(148, 34));
+        field.setPreferredSize(new Dimension(142, 30));
         field.setFont(FONT_PLAIN);
         field.setForeground(TEXT);
         field.setBackground(Color.WHITE);
-        field.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(new Color(205, 213, 224), 9), BorderFactory.createEmptyBorder(5, 9, 5, 9)));
+        field.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(new Color(205, 213, 224), 9), BorderFactory.createEmptyBorder(4, 8, 4, 8)));
         return field;
     }
 
@@ -998,7 +1025,7 @@ public final class FieldLedgerWin7App {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = column;
         gbc.gridy = row / 2;
-        gbc.insets = new Insets(4, 4, 4, 4);
+        gbc.insets = new Insets(3, 4, 3, 4);
         gbc.anchor = GridBagConstraints.WEST;
         gbc.fill = column == 1 ? GridBagConstraints.HORIZONTAL : GridBagConstraints.NONE;
         gbc.weightx = column == 1 ? 1D : 0D;
@@ -1013,7 +1040,7 @@ public final class FieldLedgerWin7App {
         gbc.gridx = 0;
         gbc.gridy = (row + 1) / 2;
         gbc.gridwidth = width * 2;
-        gbc.insets = new Insets(8, 4, 4, 4);
+        gbc.insets = new Insets(6, 4, 2, 4);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1D;
         return gbc;
@@ -1024,7 +1051,7 @@ public final class FieldLedgerWin7App {
         button.setFocusPainted(false);
         button.setOpaque(true);
         button.setContentAreaFilled(true);
-        button.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(ACCENT, 10), BorderFactory.createEmptyBorder(7, 16, 7, 16)));
+        button.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(ACCENT, 10), BorderFactory.createEmptyBorder(6, 16, 6, 16)));
         button.setFont(FONT_BOLD);
         button.setBackground(ACCENT);
         button.setForeground(Color.WHITE);
@@ -1037,7 +1064,7 @@ public final class FieldLedgerWin7App {
         button.setFocusPainted(false);
         button.setOpaque(true);
         button.setContentAreaFilled(true);
-        button.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(BORDER, 10), BorderFactory.createEmptyBorder(7, 16, 7, 16)));
+        button.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(BORDER, 10), BorderFactory.createEmptyBorder(6, 16, 6, 16)));
         button.setFont(FONT_BOLD);
         button.setBackground(new Color(248, 250, 252));
         button.setForeground(TEXT);
@@ -1047,7 +1074,7 @@ public final class FieldLedgerWin7App {
 
     private JButton dangerButton(String label) {
         JButton button = secondaryButton(label);
-        button.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(new Color(254, 205, 202), 10), BorderFactory.createEmptyBorder(7, 16, 7, 16)));
+        button.setBorder(BorderFactory.createCompoundBorder(new RoundBorder(new Color(254, 205, 202), 10), BorderFactory.createEmptyBorder(6, 16, 6, 16)));
         button.setBackground(new Color(255, 241, 240));
         button.setForeground(DANGER);
         return button;
@@ -1169,10 +1196,10 @@ public final class FieldLedgerWin7App {
 
     private Object[][] teamLaborSummaryRows() {
         List<TeamLaborSummary> summaries = store.teamLaborSummaries();
-        Object[][] rows = new Object[summaries.size()][5];
+        Object[][] rows = new Object[summaries.size()][8];
         for (int i = 0; i < summaries.size(); i++) {
             TeamLaborSummary row = summaries.get(i);
-            rows[i] = new Object[] { row.teamLeader, Money.centsToYuan(row.maleAmountCents), Money.centsToYuan(row.femaleAmountCents), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents) };
+            rows[i] = new Object[] { row.month, row.teamLeader, Money.number(row.maleCount), Money.centsToYuan(row.maleAmountCents), Money.number(row.femaleCount), Money.centsToYuan(row.femaleAmountCents), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents) };
         }
         return rows;
     }
@@ -1182,9 +1209,68 @@ public final class FieldLedgerWin7App {
         Object[][] rows = new Object[summaries.size()][8];
         for (int i = 0; i < summaries.size(); i++) {
             ManagerTeamLaborSummary row = summaries.get(i);
-            rows[i] = new Object[] { row.managerName, row.teamLeader, Money.number(row.maleCount), Money.centsToYuan(row.maleAmountCents), Money.number(row.femaleCount), Money.centsToYuan(row.femaleAmountCents), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents) };
+            rows[i] = new Object[] { row.month, row.managerName, Money.number(row.maleCount), Money.centsToYuan(row.maleAmountCents), Money.number(row.femaleCount), Money.centsToYuan(row.femaleAmountCents), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents) };
         }
         return rows;
+    }
+
+    private String[] teamLaborMatrixHeaders() {
+        List<String> leaders = store.teamLaborLeaders();
+        String[] fields = { "日期", "项目", "男工", "单价", "金额", "女工", "单价", "金额", "车工", "总计" };
+        String[] headers = new String[1 + leaders.size() * fields.length];
+        int index = 0;
+        headers[index++] = "月份";
+        for (String leader : leaders) {
+            for (String field : fields) {
+                headers[index++] = leader + "-" + field;
+            }
+        }
+        return headers;
+    }
+
+    private Object[][] teamLaborMatrixRows() {
+        List<String> months = store.laborMonths();
+        List<String> leaders = store.teamLaborLeaders();
+        List<Object[]> matrixRows = new ArrayList<Object[]>();
+        for (String month : months) {
+            List<List<LaborRecord>> grouped = new ArrayList<List<LaborRecord>>();
+            int maxRows = 0;
+            for (String leader : leaders) {
+                List<LaborRecord> rows = store.teamLaborRecords(month, leader);
+                grouped.add(rows);
+                maxRows = Math.max(maxRows, rows.size());
+            }
+            for (int rowIndex = 0; rowIndex < maxRows; rowIndex++) {
+                Object[] row = new Object[1 + leaders.size() * 10];
+                int column = 0;
+                row[column++] = month;
+                for (List<LaborRecord> records : grouped) {
+                    if (rowIndex < records.size()) {
+                        LaborRecord record = records.get(rowIndex);
+                        row[column++] = record.date;
+                        row[column++] = record.projectName;
+                        row[column++] = Money.number(record.maleCount);
+                        row[column++] = Money.centsToYuan(record.malePriceCents);
+                        row[column++] = Money.centsToYuan(record.maleAmountCents());
+                        row[column++] = Money.number(record.femaleCount);
+                        row[column++] = Money.centsToYuan(record.femalePriceCents);
+                        row[column++] = Money.centsToYuan(record.femaleAmountCents());
+                        row[column++] = Money.centsToYuan(record.vehicleAmountCents);
+                        row[column++] = Money.centsToYuan(record.totalCents());
+                    } else {
+                        for (int i = 0; i < 10; i++) {
+                            row[column++] = "";
+                        }
+                    }
+                }
+                matrixRows.add(row);
+            }
+        }
+        Object[][] matrix = new Object[matrixRows.size()][1 + leaders.size() * 10];
+        for (int i = 0; i < matrixRows.size(); i++) {
+            matrix[i] = matrixRows.get(i);
+        }
+        return matrix;
     }
 
     private Object[][] publicExpenseRows() {
@@ -1282,6 +1368,58 @@ public final class FieldLedgerWin7App {
             rows[i] = new Object[] { row.date, row.source, row.target, row.category, row.name, Money.centsToYuan(row.amountCents), row.note };
         }
         return rows;
+    }
+
+    private void showTeamLaborDetail(String month, String teamLeader) {
+        TeamLaborSummary summary = null;
+        for (TeamLaborSummary row : store.teamLaborSummaries()) {
+            if (row.month.equals(month) && row.teamLeader.equals(teamLeader)) {
+                summary = row;
+                break;
+            }
+        }
+        if (summary == null) {
+            JOptionPane.showMessageDialog(frame, "未找到带队统计");
+            return;
+        }
+
+        JDialog dialog = new JDialog(frame, month + " " + teamLeader + " 团队工资明细", true);
+        dialog.setLayout(new BorderLayout(12, 12));
+
+        JPanel cards = new JPanel(new GridLayout(1, 5, 12, 12));
+        cards.setBorder(BorderFactory.createEmptyBorder(12, 12, 0, 12));
+        cards.add(metric("男工数", Money.number(summary.maleCount)));
+        cards.add(metric("男工金额", Money.centsToYuan(summary.maleAmountCents)));
+        cards.add(metric("女工数", Money.number(summary.femaleCount)));
+        cards.add(metric("女工金额", Money.centsToYuan(summary.femaleAmountCents)));
+        cards.add(metric("合计", Money.centsToYuan(summary.totalCents)));
+
+        JTable detailTable = table(new String[] { "日期", "地块", "管理人", "项目", "男工数", "男工金额", "女工数", "女工金额", "车费", "合计", "备注" }, teamLaborDetailRows(month, teamLeader));
+        dialog.add(cards, BorderLayout.NORTH);
+        dialog.add(wrapTable("团队用工明细", detailTable), BorderLayout.CENTER);
+
+        JButton close = secondaryButton("关闭");
+        close.addActionListener(e -> dialog.dispose());
+        JPanel footer = new JPanel(new BorderLayout());
+        footer.setBorder(BorderFactory.createEmptyBorder(0, 12, 12, 12));
+        footer.add(close, BorderLayout.EAST);
+        dialog.add(footer, BorderLayout.SOUTH);
+
+        dialog.setSize(new Dimension(1040, 640));
+        dialog.setLocationRelativeTo(frame);
+        dialog.setVisible(true);
+    }
+
+    private Object[][] teamLaborDetailRows(String month, String teamLeader) {
+        List<Object[]> rows = new ArrayList<Object[]>();
+        for (LaborRecord row : store.teamLaborRecords(month, teamLeader)) {
+            rows.add(new Object[] { row.date, store.plotCode(row.plotId), store.plotManagerName(row.plotId), row.projectName, Money.number(row.maleCount), Money.centsToYuan(row.maleAmountCents()), Money.number(row.femaleCount), Money.centsToYuan(row.femaleAmountCents()), Money.centsToYuan(row.vehicleAmountCents), Money.centsToYuan(row.totalCents()), row.note });
+        }
+        Object[][] result = new Object[rows.size()][11];
+        for (int i = 0; i < rows.size(); i++) {
+            result[i] = rows.get(i);
+        }
+        return result;
     }
 
     private JComboBox<Item> managerCombo() {
